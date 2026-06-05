@@ -1,0 +1,26 @@
+# halo — active-window border. Source-of-truth config template.
+# Copy to ~/.config/halo/config.toml and edit. halo only READS it.
+# Unknown / malformed keys are ignored and keep their default, so a typo
+# can never break the ring.
+
+# Resting ring colour (#RRGGBB).
+color = "#39C5C8"
+# Ring line width in points.
+width = 3
+# Corner radius.
+corner_radius = 10
+# Gap between the window edge and the ring.
+pad = 4
+# Soft glow bloom while flashing.
+glow = true
+
+# Focus-change pulse: the ring brightens toward flash_color, thickens by
+# flash_width, then decays over flash_ms. Set flash_ms = 0 to disable.
+flash_color = "#FF5CA8"
+flash_width = 5
+flash_ms = 400
+
+# Ignore windows smaller than this (drops tiny popups / palettes).
+min_size = 80
+# Comma-separated app names to never ring, e.g. exclude = "Finder, Spotlight".
+exclude = ""
