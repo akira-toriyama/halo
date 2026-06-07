@@ -2,8 +2,8 @@
 
 A neon ring around your active window on macOS. It hugs the focused
 window, **follows it smoothly as you drag** (window-server events at
-~5ms — not the laggy AX path), and **pulses on focus change** so you
-always know where you are.
+~5ms — not the laggy AX path), and **pulses — and can shake the focused
+window —** on focus change so you always know where you are.
 
 Part of the **facet** family — pairs naturally with the
 [facet](https://github.com/akira-toriyama/facet) window manager but
@@ -16,9 +16,10 @@ repos" decision.)
 ## Requirements
 
 - Apple Silicon, macOS 13+
-- SIP can stay **on**. halo only *observes* the window server (read-only
-  private SkyLight) and draws a transparent overlay — it never moves or
-  touches your windows.
+- SIP can stay **on**. The ring itself is read-only (private SkyLight +
+  a click-through overlay). The optional **focus-shake** moves the
+  focused window via Accessibility — grant halo Accessibility for that,
+  or set `shake = false` to keep halo permission-free.
 
 ## Install
 
@@ -38,9 +39,11 @@ xattr -dr com.apple.quarantine /Applications/Halo.app
 open /Applications/Halo.app
 ```
 
-halo is an `LSUIElement` agent (no Dock icon, never steals focus) and
-needs **no permissions** — it only reads window geometry via read-only
-private SkyLight and draws a click-through overlay. Just launch it.
+halo is an `LSUIElement` agent (no Dock icon, never steals focus). The
+ring needs **no permissions**. The **focus-shake** (on by default) moves
+the focused window, which needs **Accessibility** — on first launch grant
+halo in System Settings → Privacy & Security → Accessibility (or set
+`shake = false` to keep halo permission-free).
 
 ## Configure
 
@@ -61,8 +64,14 @@ Keys mirror facet's `[border]` surface:
 - `cycle-seconds`, `cycle-colors` (loop a non-rainbow effect through its
   palette), `min-width` / `max-width` (set both to make the width breathe)
 - `corner-radius`, `pad`, `min-size`, `exclude`
+- `[shake]` — `shake` (focus-shake on/off), `shake-amplitude` (peak
+  horizontal swing in points), `shake-duration-ms`. On focus change the
+  focused window does a quick horizontal jiggle and snaps back to its
+  exact origin (position only — neighbours untouched). Moves the window
+  via Accessibility; lazy-AX apps (Chrome, Calendar) won't move.
 
-Unknown or malformed keys are ignored and keep the default.
+Unknown or malformed keys are ignored and keep the default. Edits apply
+**live** — halo hot-reloads `config.toml` within ~0.4s, no restart.
 
 ## Build / run (dev)
 
