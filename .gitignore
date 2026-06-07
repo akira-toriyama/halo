@@ -1,5 +1,16 @@
+# SwiftPM
 .build/
 .swiftpm/
-*.xcodeproj
+Package.resolved
+*.xcodeproj/
+*.xcworkspace/
+
+# macOS
 .DS_Store
+*.swp
+
+# App bundles produced by local build scripts (AppIcon.icns IS committed)
+*.app/
+
+# Logs (local dev)
 /tmp/

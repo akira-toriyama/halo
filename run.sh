@@ -1,16 +1,25 @@
 #!/bin/zsh
-# Build (release) + relaunch halo locally with HALO_DEBUG on (verbose
-# /tmp/halo.log). halo is a plain agent binary — no .app bundle / TCC
-# grant needed (read-only SkyLight + a click-through overlay).
+# Build (release) + assemble Halo.app + relaunch it locally with
+# HALO_DEBUG on (verbose /tmp/halo.log).
 #
 #   ./run.sh
 #
-# Quit later: ./stop.sh
+# Always kills any currently-running halo first (via stop.sh) so the
+# new bundle takes over cleanly. Quit later: ./stop.sh
+#
+# halo needs no Accessibility / Screen Recording grant (read-only
+# SkyLight + a click-through overlay), so there's nothing to approve
+# on first run.
 set -e
 cd "$(dirname "$0")"
 
-swift build -c release
+./package.sh
 ./stop.sh
 sleep 0.3
-HALO_DEBUG=1 .build/release/halo &
-echo "halo launched (HALO_DEBUG on → /tmp/halo.log). Stop: ./stop.sh"
+
+# `open` doesn't inherit the calling shell's environment (macOS Launch
+# Services starts the .app in its own context), so HALO_DEBUG is passed
+# through explicitly via --env. There is no `--debug` flag — debug is
+# env-var-triggered, so a brew / raw `open Halo.app` stays quiet.
+open ./Halo.app --env HALO_DEBUG=1
+echo "Halo.app launched (HALO_DEBUG on → /tmp/halo.log). Stop: ./stop.sh"

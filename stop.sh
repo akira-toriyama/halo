@@ -1,14 +1,19 @@
 #!/bin/zsh
-# Kill every running halo instance (release / debug / raw binary).
-# Safe to run when nothing is up (no-op).
+# Kill every running halo instance — Halo.app bundle or raw SwiftPM
+# binary. Use when you've lost track of which one is up. Safe to run
+# when nothing is up (no-op).
 #
 #   ./stop.sh
 set -e
 cd "$(dirname "$0")"
 
-pkill -f '\.build/.*/halo' 2>/dev/null || true
+pkill -f '/Contents/MacOS/halo' 2>/dev/null || true
+pkill -f '\.build/.*/halo'      2>/dev/null || true
 
-remaining="$(ps aux | grep -E '\.build/.*/halo' | grep -v grep || true)"
+# Confirmation pass: anything still alive?
+remaining="$(ps aux \
+    | grep -E '/Contents/MacOS/halo|\.build/.*/halo' \
+    | grep -v grep || true)"
 if [[ -n "$remaining" ]]; then
     echo "warning: some halo instances survived:" >&2
     echo "$remaining" >&2
