@@ -1,5 +1,17 @@
 import AppKit
 import ApplicationServices
+import Darwin
+
+// `_AXUIElementGetWindow` (private ApplicationServices symbol, dlsym-bound)
+// maps an AX window element to its CGWindowID — the same reconciliation
+// facet uses (AXFocus/AXGeom) to line AX elements up with CGWindowList ids.
+private typealias AXGetWindowFn =
+    @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
+private let axGetWindow: AXGetWindowFn? = {
+    guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2),
+                          "_AXUIElementGetWindow") else { return nil }
+    return unsafeBitCast(sym, to: AXGetWindowFn.self)
+}()
 
 // Focus-shake — a quick horizontal jiggle of the FOCUSED WINDOW on
 // focus change. A sibling-repo "satellite" of facet's reverted ④
@@ -43,9 +55,10 @@ final class WindowShake {
     /// Accessibility granted? (Required to move another app's window.)
     static var trusted: Bool { AXIsProcessTrusted() }
 
-    /// Shake the focused window of app `pid`. No-op without AX trust,
-    /// or when the app won't surface a movable focused window.
-    func fire(pid: pid_t) {
+    /// Shake the window `wid` (the one the ring/flash resolved) owned by
+    /// app `pid`. No-op without AX trust, or when the app won't surface a
+    /// movable matching window.
+    func fire(pid: pid_t, wid: CGWindowID) {
         guard AXIsProcessTrusted() else { return }
 
         // Re-entrancy: snap any in-flight shake back to its origin
@@ -54,13 +67,7 @@ final class WindowShake {
         finish()
 
         let app = AXUIElementCreateApplication(pid)
-        var winRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-                app, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
-              let raw = winRef
-        else { return }
-        // kAXFocusedWindowAttribute always returns an AXUIElement.
-        let w = raw as! AXUIElement
+        guard let w = axWindow(in: app, matching: wid) else { return }
 
         // Skip windows AX won't let us move (immovable / lazy-AX).
         var settable: DarwinBoolean = false
@@ -101,7 +108,31 @@ final class WindowShake {
         win = nil
     }
 
-    // MARK: - AX position get/set
+    // MARK: - AX window resolution + position get/set
+
+    /// The app's AX window matching the resolved CGWindowID, so the shake
+    /// hits the SAME window the ring/flash chose — not whatever the app
+    /// reports as `kAXFocusedWindow` (which can differ in multi-window
+    /// apps). Falls back to the focused window when the id lookup can't
+    /// match, rather than no-op'ing.
+    private func axWindow(in app: AXUIElement, matching wid: CGWindowID) -> AXUIElement? {
+        var ref: CFTypeRef?
+        if let getWid = axGetWindow,
+           AXUIElementCopyAttributeValue(
+               app, kAXWindowsAttribute as CFString, &ref) == .success,
+           let wins = ref as? [AXUIElement],
+           let match = wins.first(where: {
+               var id: CGWindowID = 0
+               return getWid($0, &id) == .success && id == wid
+           }) {
+            return match
+        }
+        var fref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+                app, kAXFocusedWindowAttribute as CFString, &fref) == .success,
+              let raw = fref else { return nil }
+        return (raw as! AXUIElement)   // kAXFocusedWindow is always an AXUIElement
+    }
 
     private func position(of win: AXUIElement) -> CGPoint? {
         var ref: CFTypeRef?

@@ -25,6 +25,7 @@ final class BorderController {
     private let ring: RingView
     private let selfPID = ProcessInfo.processInfo.processIdentifier
     private var lastWID: UInt32 = 0
+    private var didFirstResolve = false
     private var lastConfigMtime: Date?
 
     init(config: HaloConfig, events: WindowServerEvents) {
@@ -74,6 +75,13 @@ final class BorderController {
         lastConfigMtime = m
         Log.line("config changed → hot-reload")
         applyConfig(HaloConfig.load())
+        // If shake was just turned on but Accessibility isn't granted,
+        // fire() would silently no-op — say so (grant takes effect live,
+        // no restart, since fire() re-checks trust each time).
+        if cfg.shake && !WindowShake.trusted {
+            Log.line("shake is on but Accessibility isn't granted — enable halo in "
+                + "System Settings → Privacy & Security → Accessibility (no restart needed)")
+        }
     }
 
     /// A window-server event arrived (fired on the main thread).
@@ -117,12 +125,15 @@ final class BorderController {
         if !overlay.isVisible { overlay.orderFrontRegardless() }
         ring.needsDisplay = true
         if wid != lastWID {
-            let firstResolve = (lastWID == 0)       // don't shake just because halo launched
             lastWID = wid
             Log.debug(String(format: "focus → wid=%u via %@ (resolve %.2fms)", wid, trigger, resolveMs))
             fx.flash()
-            if cfg.shake && !firstResolve { shake.fire(pid: pid_t(pid)) }
+            // Gate the shake on didFirstResolve (set once, never reset) — NOT
+            // on lastWID, which the no-focus branch above resets to 0; that
+            // would suppress the shake after any transient defocus.
+            if cfg.shake && didFirstResolve { shake.fire(pid: pid_t(pid), wid: wid) }
         }
+        didFirstResolve = true
     }
 
     /// Frontmost layer-0 window not owned by us / not excluded, from a snapshot.
