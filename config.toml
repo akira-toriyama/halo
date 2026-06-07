@@ -1,26 +1,30 @@
 # halo — active-window border. Source-of-truth config template.
 # Copy to ~/.config/halo/config.toml and edit. halo only READS it.
-# Unknown / malformed keys are ignored and keep their default, so a typo
-# can never break the ring.
+# Unknown / malformed keys keep their default, so a typo can't break the
+# ring. ([border] header is optional/cosmetic — keys are read flat.)
 
-# Resting ring colour (#RRGGBB).
-color = "#39C5C8"
+[border]
+# Effect palette layered on the ring (mirrors facet's [border] effect):
+#   off | neon | cyber | vapor | kawaii | rainbow | random
+effect = "neon"
+# Soft outward glow.
+glow = true
 # Ring line width in points.
 width = 3
-# Corner radius.
-corner_radius = 10
-# Gap between the window edge and the ring.
-pad = 4
-# Soft glow bloom while flashing.
-glow = true
+# Resting color when effect = off (#RRGGBB).
+color = "#39C5C8"
 
-# Focus-change pulse: the ring brightens toward flash_color, thickens by
-# flash_width, then decays over flash_ms. Set flash_ms = 0 to disable.
-flash_color = "#FF5CA8"
-flash_width = 5
-flash_ms = 400
+# Animation (all optional):
+# rainbow rotates its hue over cycle-seconds; for the other effects set
+# cycle-colors = true to loop them through their own flash palette.
+cycle-seconds = 6
+cycle-colors = false
+# Set both (max > min) to make the width "breathe" over cycle-seconds.
+# min-width = 2
+# max-width = 5
 
-# Ignore windows smaller than this (drops tiny popups / palettes).
-min_size = 80
-# Comma-separated app names to never ring, e.g. exclude = "Finder, Spotlight".
-exclude = ""
+# Geometry / scope:
+corner-radius = 10
+pad = 4            # gap between window edge and ring
+min-size = 80      # ignore windows smaller than this (drops tiny popups)
+exclude = ""       # comma-separated app names to never ring, e.g. "Finder, Spotlight"

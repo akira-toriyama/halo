@@ -39,9 +39,20 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
   -o ~/.config/halo/config.toml
 ```
 
-Keys: `color`, `width`, `corner_radius`, `pad`, `glow`, `flash_color`,
-`flash_width`, `flash_ms` (0 disables the pulse), `min_size`, `exclude`.
+Keys mirror facet's `[border]` surface:
+
+- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | random`
+  (the palette layered on the ring; the focus flash blinks through it)
+- `glow`, `width`, `color` (resting color when `effect = off`)
+- `cycle-seconds`, `cycle-colors` (loop a non-rainbow effect through its
+  palette), `min-width` / `max-width` (set both to make the width breathe)
+- `corner-radius`, `pad`, `min-size`, `exclude`
+
 Unknown or malformed keys are ignored and keep the default.
+
+For local dev: `./run.sh` (build release + relaunch with `HALO_DEBUG`),
+`./stop.sh` (kill it). Commits follow the facet-family gitmoji +
+Conventional Commits convention (`git config core.hooksPath scripts/hooks`).
 
 ## How it works
 

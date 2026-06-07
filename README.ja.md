@@ -39,9 +39,20 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
   -o ~/.config/halo/config.toml
 ```
 
-キー: `color`, `width`, `corner_radius`, `pad`, `glow`, `flash_color`,
-`flash_width`, `flash_ms` (0 で光らせない), `min_size`, `exclude`。
+キーは facet の `[border]` に揃えてある:
+
+- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | random`
+  (リングに乗せるパレット。focus フラッシュはこれを点滅する)
+- `glow`, `width`, `color` (`effect = off` 時の静止色)
+- `cycle-seconds`, `cycle-colors` (rainbow 以外も自分のパレットを循環),
+  `min-width` / `max-width` (両方指定で太さが呼吸する)
+- `corner-radius`, `pad`, `min-size`, `exclude`
+
 未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。
+
+ローカル開発: `./run.sh` (release ビルド + HALO_DEBUG で再起動)・
+`./stop.sh` (停止)。コミットは facet ファミリーの gitmoji + Conventional
+Commits 規約 (`git config core.hooksPath scripts/hooks`)。
 
 ## 仕組み
 
