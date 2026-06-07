@@ -20,16 +20,14 @@ final class HaloApp: NSObject, NSApplicationDelegate {
             Log.line("‼️ could not start the window-event seam — exiting")
             NSApp.terminate(nil); return
         }
-        border.resubscribe()
-        border.refresh()
+        border.poll()
 
         // Safety net (yabai-style): periodically re-subscribe the on-screen
         // set + re-hug, so windows opened after launch start emitting
         // MOVE/RESIZE and a missed event can't leave the ring stale. The
         // live, smooth tracking still comes from the ~5ms events.
         let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
-            self?.border.resubscribe()
-            self?.border.refresh()
+            self?.border.poll()
         }
         RunLoop.main.add(timer, forMode: .common)
         safetyNet = timer
