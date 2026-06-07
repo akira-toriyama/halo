@@ -52,6 +52,14 @@ final class WindowShake {
     private var origin: CGPoint = .zero
     private var startUptime: TimeInterval = 0
 
+    // Deferred mouse-driven shake: a focus change while a button is held
+    // could be a click (shake on release) or a drag (no shake). We hold
+    // the decision here until the gesture ends.
+    private var pending: (pid: pid_t, wid: CGWindowID)?
+    private var armPoint: CGPoint = .zero
+    private var gestureMonitor: Any?
+    private let dragThreshold: CGFloat = 6   // pt of pointer travel ⇒ drag, not click
+
     /// Accessibility granted? (Required to move another app's window.)
     static var trusted: Bool { AXIsProcessTrusted() }
 
@@ -61,6 +69,57 @@ final class WindowShake {
     func fire(pid: pid_t, wid: CGWindowID) {
         guard AXIsProcessTrusted() else { return }
 
+        // A focus change while a mouse button is held is mouse-driven:
+        // either a plain click-to-focus (which SHOULD still shake) or the
+        // start of a window drag (which must NOT — our kAXPosition sine
+        // would land ON TOP of the OS's cursor-track and yank the window
+        // off the cursor: the "DnD drift" against facet's observe-only
+        // real-window drag). We can't tell click from drag until the
+        // gesture ends, so defer the decision (no shake starts now, so a
+        // drag never jerks). Keyboard / programmatic focus changes (no
+        // button held) shake immediately, as before.
+        if NSEvent.pressedMouseButtons != 0 {
+            armDeferred(pid: pid, wid: wid)
+            return
+        }
+        start(pid: pid, wid: wid)
+    }
+
+    /// Hold a mouse-driven focus shake until the gesture resolves: fire on
+    /// mouse-up if the pointer stayed within `dragThreshold` (a click),
+    /// drop it if it travelled past (a drag). One lazily-installed global
+    /// monitor drives the decision and no-ops whenever nothing is pending.
+    private func armDeferred(pid: pid_t, wid: CGWindowID) {
+        pending = (pid, wid)
+        armPoint = NSEvent.mouseLocation
+        if gestureMonitor == nil {
+            gestureMonitor = NSEvent.addGlobalMonitorForEvents(
+                matching: [.leftMouseDragged, .leftMouseUp]) { [weak self] e in
+                self?.onGesture(e)
+            }
+        }
+    }
+
+    private func onGesture(_ e: NSEvent) {
+        guard pending != nil else { return }
+        switch e.type {
+        case .leftMouseDragged:
+            let p = NSEvent.mouseLocation
+            if hypot(p.x - armPoint.x, p.y - armPoint.y) > dragThreshold {
+                pending = nil                      // became a drag → no shake
+            }
+        case .leftMouseUp:
+            if let pend = pending {
+                pending = nil
+                start(pid: pend.pid, wid: pend.wid)  // was a click → shake now
+            }
+        default:
+            break
+        }
+    }
+
+    /// Begin the shake animation on the resolved window.
+    private func start(pid: pid_t, wid: CGWindowID) {
         // Re-entrancy: snap any in-flight shake back to its origin
         // before starting the next, so a fast app-switch never leaves
         // a window stranded off-base.
@@ -91,6 +150,11 @@ final class WindowShake {
 
     private func tick() {
         guard let w = win else { return }
+        // Bail if a mouse button went down mid-shake (the user grabbed the
+        // window while it was still jiggling, e.g. keyboard-focus then drag
+        // within the ~250ms window): snap back to origin and hand the frame
+        // to the OS's cursor-track so the drag doesn't fight the sine.
+        guard NSEvent.pressedMouseButtons == 0 else { finish(); return }
         let elapsedMs = (ProcessInfo.processInfo.systemUptime - startUptime) * 1000
         let p = elapsedMs / durationMs
         if p >= 1 { finish(); return }            // restores exact origin
