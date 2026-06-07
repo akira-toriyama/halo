@@ -3,12 +3,13 @@
 #
 #   ./package.sh
 #
-# halo touches NO TCC-gated APIs (no Accessibility / no Screen
-# Recording — just AppKit + read-only private SkyLight), so unlike
-# facet there is no self-signed-cert dance and no dev/release bundle
-# split: there's no grant to keep stable across rebuilds. Plain
-# ad-hoc signing is enough. (Override the identity with CODESIGN_ID
-# if you ever want a real one; CI passes CODESIGN_ID="-".)
+# The ring is read-only, but focus-shake (`shake = true`) MOVES the
+# focused window via AX, which needs the Accessibility (TCC) grant.
+# TCC keys that grant to the code-signing identity, so to keep it
+# across the rebuild-heavy dev loop, run ./setup-signing-cert.sh once
+# (it writes a stable identity name to .signing-id, used below).
+# Without it you fall back to ad-hoc and re-grant every relaunch.
+# CI / brew pass CODESIGN_ID="-".
 #
 # The bundle id is com.halo.app — keep it stable across versions.
 set -e
@@ -42,9 +43,25 @@ if [[ -f AppIcon.icns ]]; then
   cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi
 
-# Identity precedence: $CODESIGN_ID > ad-hoc ("-").
-ID="${CODESIGN_ID:--}"
-codesign --force --sign "$ID" "$APP"
+# Identity precedence: $CODESIGN_ID > .signing-id file > ad-hoc ("-").
+# Hybrid (best-effort cert, loud fallback): try the stable identity, but
+# if codesign can't use the keychain key (errSecInternalComponent —
+# locked keychain, ACL refusal, broken cert), fall back to ad-hoc with a
+# warning instead of aborting. Ad-hoc works fine; the only cost is the
+# AX grant dropping when the binary changes (not on config-only tweaks).
+ID="${CODESIGN_ID:-}"
+if [[ -z "$ID" && -f .signing-id ]]; then ID="$(cat .signing-id)"; fi
+ID="${ID:--}"
+if ! codesign --force --sign "$ID" "$APP" 2>/tmp/halo-codesign.err; then
+  if [[ "$ID" != "-" ]]; then
+    echo "warning: signing with \"$ID\" failed ($(tr -d '\n' </tmp/halo-codesign.err)) — ad-hoc fallback" >&2
+    echo "  (fix later: ./setup-signing-cert.sh + click 'Always Allow', or just use ad-hoc)" >&2
+    ID="-"
+    codesign --force --sign - "$APP"
+  else
+    echo "codesign (ad-hoc) failed:" >&2; cat /tmp/halo-codesign.err >&2; exit 1
+  fi
+fi
 
 echo "built $APP  (signed: $ID)"
 echo "launch: open $APP   |   quit: ./stop.sh"

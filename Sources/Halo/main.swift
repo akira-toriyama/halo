@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 
 // halo — active-window border. Entry point + lifecycle.
 //
@@ -13,6 +14,16 @@ final class HaloApp: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ note: Notification) {
         Log.line("halo up (verbose=\(Log.enabled))")
+
+        // The ring itself is read-only, but focus-shake MOVES the focused
+        // window via AX, which needs Accessibility. Prompt only when the
+        // feature is on — `shake = false` keeps halo permission-free.
+        if config.shake,
+           !AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) {
+            Log.line("focus-shake needs Accessibility — grant halo in System Settings → "
+                + "Privacy & Security → Accessibility, then restart (or set shake = false)")
+        }
+
         border = BorderController(config: config, events: events)
         events.onEvent = { [weak self] event in self?.border.onEvent(event) }
 

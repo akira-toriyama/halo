@@ -23,6 +23,11 @@ struct HaloConfig {
     var minSize: CGFloat     = 80          // ignore tiny popups
     var excludedApps: [String] = []
 
+    // --- focus shake (moves the real window — needs Accessibility) ---
+    var shake: Bool             = true     // jiggle the focused window on focus change
+    var shakeAmplitude: CGFloat = 10       // peak horizontal swing (pt)
+    var shakeDurationMs: Double = 250      // total shake duration (ms)
+
     static func load() -> HaloConfig {
         var c = HaloConfig()
         let path = ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
@@ -51,6 +56,9 @@ struct HaloConfig {
             case "min-size":      if let v = Double(value) { c.minSize = CGFloat(v) }
             case "exclude":       c.excludedApps = value.split(separator: ",")
                                       .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            case "shake":             c.shake = (value == "true")
+            case "shake-amplitude":   if let v = Double(value) { c.shakeAmplitude = CGFloat(v) }
+            case "shake-duration-ms": if let v = Double(value) { c.shakeDurationMs = max(1, v) }
             default: break
             }
         }

@@ -7,9 +7,10 @@
 # Always kills any currently-running halo first (via stop.sh) so the
 # new bundle takes over cleanly. Quit later: ./stop.sh
 #
-# halo needs no Accessibility / Screen Recording grant (read-only
-# SkyLight + a click-through overlay), so there's nothing to approve
-# on first run.
+# The ring is read-only, but focus-shake (`shake = true`) moves the
+# focused window via AX → grant halo Accessibility once on first run
+# (or set shake = false to stay permission-free). For a smooth dev
+# loop run ./setup-signing-cert.sh first so the grant survives rebuilds.
 set -e
 cd "$(dirname "$0")"
 

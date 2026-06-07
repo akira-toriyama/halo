@@ -3,7 +3,8 @@
 macOS のアクティブウィンドウにネオンの枠線を描くツール。フォーカス
 されている窓に枠が張り付き、**ドラッグすると滑らかに追従**し
 (window-server イベントを ~5ms で取得 — 遅い AX 経路ではない)、
-**フォーカスが変わると光る**ので、今どの窓にいるか一目で分かる。
+**フォーカスが変わると光る（オプションでフォーカス窓が振動する）**ので、
+今どの窓にいるか一目で分かる。
 
 **facet** ファミリーの一員 —
 [facet](https://github.com/akira-toriyama/facet) ウィンドウマネージャと
@@ -16,9 +17,10 @@ facet の「隣接機能は sibling repo に置く」決定に従う。)
 ## 要件
 
 - Apple Silicon, macOS 13+
-- SIP は **有効のまま**で良い。halo は window server を *観測* するだけ
-  (read-only な private SkyLight) で、透明なオーバーレイを描くだけ ——
-  窓を動かしたり触ったりは一切しない。
+- SIP は **有効のまま**で良い。リング自体は read-only (private SkyLight
+  + クリック透過オーバーレイ)。オプションの **focus-shake** は AX で
+  フォーカス窓を動かすので Accessibility が要る —— 付与するか、
+  `shake = false` で権限不要のままにできる。
 
 ## インストール
 
@@ -38,9 +40,11 @@ xattr -dr com.apple.quarantine /Applications/Halo.app
 open /Applications/Halo.app
 ```
 
-halo は `LSUIElement` agent (Dock アイコンなし・フォーカスを奪わない)
-で、**権限は一切不要** —— read-only な private SkyLight で窓の座標を
-読み、クリックを透過するオーバーレイを描くだけ。起動すればそれで動く。
+halo は `LSUIElement` agent (Dock アイコンなし・フォーカスを奪わない)。
+リングは **権限不要**。**focus-shake** (既定 ON) はフォーカス窓を動かす
+ため **Accessibility** が要る —— 初回起動時に System Settings → Privacy
+& Security → Accessibility で halo を許可 (or `shake = false` で権限不要の
+まま)。
 
 ## 設定
 
@@ -61,8 +65,14 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
 - `cycle-seconds`, `cycle-colors` (rainbow 以外も自分のパレットを循環),
   `min-width` / `max-width` (両方指定で太さが呼吸する)
 - `corner-radius`, `pad`, `min-size`, `exclude`
+- `[shake]` — `shake` (focus-shake の on/off)・`shake-amplitude` (左右
+  振幅 pt)・`shake-duration-ms`。フォーカス変化でフォーカス窓が一瞬
+  左右に揺れて**厳密に元位置へ戻る** (位置のみ＝隣の窓は不変)。AX で
+  窓を動かすので lazy-AX アプリ (Chrome, Calendar) は動かない。
 
-未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。
+未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。編集は
+**即時反映** —— halo が `config.toml` を ~0.4s でホットリロードする
+(再起動不要)。
 
 ## ビルド / 実行 (開発)
 

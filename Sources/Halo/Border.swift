@@ -16,14 +16,17 @@ import AppKit
 private let glowPad: CGFloat = 24
 
 final class BorderController {
-    private let cfg: HaloConfig
+    private var cfg: HaloConfig
     private let events: WindowServerEvents
     private let overlay = NSWindow(contentRect: .zero, styleMask: [.borderless],
                                    backing: .buffered, defer: true)
     private let fx = BorderFX()
+    private let shake = WindowShake()
     private let ring: RingView
     private let selfPID = ProcessInfo.processInfo.processIdentifier
     private var lastWID: UInt32 = 0
+    private var didFirstResolve = false
+    private var lastConfigMtime: Date?
 
     init(config: HaloConfig, events: WindowServerEvents) {
         self.cfg = config
@@ -37,10 +40,48 @@ final class BorderController {
         overlay.collectionBehavior = [.stationary, .ignoresCycle, .fullScreenAuxiliary]  // desktop-local (rides the Space slide)
         overlay.contentView = ring
 
-        fx.configure(effectName: cfg.effect, glow: cfg.glow, width: cfg.width,
-                     cycleSeconds: cfg.cycleSeconds, cycleColors: cfg.cycleColors,
-                     minWidth: cfg.minWidth, maxWidth: cfg.maxWidth, baseColor: cfg.color)
         fx.onRepaint = { [weak ring] in ring?.needsDisplay = true }
+        applyConfig(config)
+        lastConfigMtime = Self.configMtime()
+    }
+
+    /// (Re)apply a config to fx / shake / ring. One path for both launch
+    /// and hot-reload, so every tunable lands the same way.
+    private func applyConfig(_ c: HaloConfig) {
+        cfg = c
+        ring.cfg = c
+        shake.amplitude = c.shakeAmplitude
+        shake.durationMs = c.shakeDurationMs
+        fx.configure(effectName: c.effect, glow: c.glow, width: c.width,
+                     cycleSeconds: c.cycleSeconds, cycleColors: c.cycleColors,
+                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color)
+        ring.needsDisplay = true
+    }
+
+    private static let configPath =
+        ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
+    private static func configMtime() -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: configPath))?[.modificationDate] as? Date
+    }
+
+    /// Hot-reload: re-read + re-apply config when its mtime changes.
+    /// Driven off the existing 0.4s safety-net poll (≤0.4s latency), which
+    /// also covers editors that atomically replace the file (mtime/inode
+    /// changes regardless). halo has no CLI/DNC client like facet, so
+    /// polling the file's mtime is the natural trigger.
+    private func reloadIfConfigChanged() {
+        let m = Self.configMtime()
+        guard m != lastConfigMtime else { return }
+        lastConfigMtime = m
+        Log.line("config changed → hot-reload")
+        applyConfig(HaloConfig.load())
+        // If shake was just turned on but Accessibility isn't granted,
+        // fire() would silently no-op — say so (grant takes effect live,
+        // no restart, since fire() re-checks trust each time).
+        if cfg.shake && !WindowShake.trusted {
+            Log.line("shake is on but Accessibility isn't granted — enable halo in "
+                + "System Settings → Privacy & Security → Accessibility (no restart needed)")
+        }
     }
 
     /// A window-server event arrived (fired on the main thread).
@@ -61,8 +102,9 @@ final class BorderController {
         }
     }
 
-    /// Periodic safety-net pass (re-subscribe the on-screen set + re-hug).
-    func poll() { update(trigger: "poll", resubscribe: true) }
+    /// Periodic safety-net pass (re-subscribe the on-screen set + re-hug),
+    /// plus the hot-reload mtime check.
+    func poll() { reloadIfConfigChanged(); update(trigger: "poll", resubscribe: true) }
 
     /// One pass over a SINGLE window-server snapshot — drives both the
     /// per-window (re)subscription AND the focused-window resolve.
@@ -75,7 +117,7 @@ final class BorderController {
         if resubscribe {
             events.requestWindows(info.compactMap { $0[kCGWindowNumber as String] as? UInt32 })
         }
-        guard let (wid, cg) = focused(in: info) else { overlay.orderOut(nil); lastWID = 0; return }
+        guard let (wid, pid, cg) = focused(in: info) else { overlay.orderOut(nil); lastWID = 0; return }
         let screenH = NSScreen.screens.first?.frame.height ?? 0      // CG (y-down) → Cocoa (y-up)
         let cocoa = CGRect(x: cg.origin.x, y: screenH - cg.origin.y - cg.height,
                            width: cg.width, height: cg.height)
@@ -86,11 +128,17 @@ final class BorderController {
             lastWID = wid
             Log.debug(String(format: "focus → wid=%u via %@ (resolve %.2fms)", wid, trigger, resolveMs))
             fx.flash()
+            // Gate the shake on didFirstResolve (set once, never reset) — NOT
+            // on lastWID, which the no-focus branch above resets to 0; that
+            // would suppress the shake after any transient defocus.
+            if cfg.shake && didFirstResolve { shake.fire(pid: pid_t(pid), wid: wid) }
         }
+        didFirstResolve = true
     }
 
     /// Frontmost layer-0 window not owned by us / not excluded, from a snapshot.
-    private func focused(in info: [[String: Any]]) -> (UInt32, CGRect)? {
+    /// Returns its CGWindowID, owning pid, and CG bounds.
+    private func focused(in info: [[String: Any]]) -> (UInt32, Int32, CGRect)? {
         for d in info {
             guard let pid = d[kCGWindowOwnerPID as String] as? Int32, pid != selfPID,
                   let wid = d[kCGWindowNumber as String] as? UInt32,
@@ -100,7 +148,7 @@ final class BorderController {
                   let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"],
                   w >= cfg.minSize, h >= cfg.minSize
             else { continue }
-            return (wid, CGRect(x: x, y: y, width: w, height: h))
+            return (wid, pid, CGRect(x: x, y: y, width: w, height: h))
         }
         return nil
     }
@@ -116,7 +164,7 @@ final class BorderController {
 /// The rounded stroke. Reads its style live from BorderFX (color / width /
 /// glow / cycle / flash), so all of facet's border effects apply.
 final class RingView: NSView {
-    private let cfg: HaloConfig
+    var cfg: HaloConfig                 // var: swapped on hot-reload
     private let fx: BorderFX
 
     init(config: HaloConfig, fx: BorderFX) { self.cfg = config; self.fx = fx; super.init(frame: .zero) }
