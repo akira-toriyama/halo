@@ -22,6 +22,7 @@ final class BorderController {
                                    backing: .buffered, defer: true)
     private let fx = BorderFX()
     private let shake = WindowShake()
+    private let focusSound = FocusSound()
     private let ring: RingView
     private let selfPID = ProcessInfo.processInfo.processIdentifier
     private var lastWID: UInt32 = 0
@@ -55,6 +56,7 @@ final class BorderController {
         fx.configure(effectName: c.effect, glow: c.glow, width: c.width,
                      cycleSeconds: c.cycleSeconds, cycleColors: c.cycleColors,
                      minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color)
+        focusSound.configure(path: c.sound, volume: c.soundVolume)
         ring.needsDisplay = true
     }
 
@@ -128,9 +130,12 @@ final class BorderController {
             lastWID = wid
             Log.debug(String(format: "focus → wid=%u via %@ (resolve %.2fms)", wid, trigger, resolveMs))
             fx.flash()
-            // Gate the shake on didFirstResolve (set once, never reset) — NOT
-            // on lastWID, which the no-focus branch above resets to 0; that
-            // would suppress the shake after any transient defocus.
+            // Gate the shake + sound on didFirstResolve (set once, never
+            // reset) — NOT on lastWID, which the no-focus branch above resets
+            // to 0; that would suppress them after any transient defocus.
+            // didFirstResolve also keeps both off the launch resolve (halo
+            // just started — you didn't change focus).
+            if didFirstResolve { focusSound.play() }
             if cfg.shake && didFirstResolve { shake.fire(pid: pid_t(pid), wid: wid) }
         }
         didFirstResolve = true

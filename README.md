@@ -69,6 +69,11 @@ Keys mirror facet's `[border]` surface:
   focused window does a quick horizontal jiggle and snaps back to its
   exact origin (position only — neighbours untouched). Moves the window
   via Accessibility; lazy-AX apps (Chrome, Calendar) won't move.
+- `[sound]` — `sound` (path to an audio file; empty = off),
+  `sound-volume` (`0.0`–`1.0`). Plays a short cue on focus change — a
+  third focus feedback alongside the ring flash and the shake. Needs no
+  permission, ships no bundled sound (point it at your own file), and is
+  latest-wins so a fast alt-tab burst never stacks.
 
 Unknown or malformed keys are ignored and keep the default. Edits apply
 **live** — halo hot-reloads `config.toml` within ~0.4s, no restart.

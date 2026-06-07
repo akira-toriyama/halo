@@ -69,6 +69,11 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
   振幅 pt)・`shake-duration-ms`。フォーカス変化でフォーカス窓が一瞬
   左右に揺れて**厳密に元位置へ戻る** (位置のみ＝隣の窓は不変)。AX で
   窓を動かすので lazy-AX アプリ (Chrome, Calendar) は動かない。
+- `[sound]` — `sound` (音声ファイルのパス。空 = OFF)・`sound-volume`
+  (`0.0`–`1.0`)。フォーカス変化で短い効果音を鳴らす —— リングの
+  フラッシュ・shake に続く 3 つ目の focus フィードバック。権限不要・
+  音源は同梱しない (自前ファイルを指す)・latest-wins なので alt-tab
+  連打でも音が積み重ならない。
 
 未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。編集は
 **即時反映** —— halo が `config.toml` を ~0.4s でホットリロードする
