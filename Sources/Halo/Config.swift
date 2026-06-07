@@ -28,6 +28,10 @@ struct HaloConfig {
     var shakeAmplitude: CGFloat = 10       // peak horizontal swing (pt)
     var shakeDurationMs: Double = 250      // total shake duration (ms)
 
+    // --- focus sound (plays an audio cue on focus change — no permission) ---
+    var sound: String       = ""           // audio file path; empty = off
+    var soundVolume: Double  = 0.3          // 0…1
+
     static func load() -> HaloConfig {
         var c = HaloConfig()
         let path = ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
@@ -59,6 +63,8 @@ struct HaloConfig {
             case "shake":             c.shake = (value == "true")
             case "shake-amplitude":   if let v = Double(value) { c.shakeAmplitude = CGFloat(v) }
             case "shake-duration-ms": if let v = Double(value) { c.shakeDurationMs = max(1, v) }
+            case "sound":             c.sound = value
+            case "sound-volume":      if let v = Double(value) { c.soundVolume = max(0, min(1, v)) }
             default: break
             }
         }

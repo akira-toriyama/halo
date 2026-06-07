@@ -42,3 +42,13 @@ exclude = ""       # comma-separated app names to never ring, e.g. "Finder, Spot
 shake = true
 shake-amplitude = 10      # peak horizontal swing in points
 shake-duration-ms = 250   # total shake duration
+
+[sound]
+# Focus-sound: play a short audio cue when focus changes to another
+# window — a third focus feedback alongside the ring flash and the shake.
+# Needs NO permission. OFF by default: point `sound` at an audio file
+# (aiff / wav / m4a / mp3 — anything NSSound reads) to enable it; leave
+# it empty and halo stays silent (halo ships no sound of its own).
+# Latest-wins — a fast alt-tab burst never stacks; only the newest plays.
+sound = ""                # audio file path; empty = off. e.g. "~/.local/share/sounds/window_focused.wav"
+sound-volume = 0.3        # 0.0 … 1.0
