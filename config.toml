@@ -28,3 +28,15 @@ corner-radius = 10
 pad = 4            # gap between window edge and ring
 min-size = 80      # ignore windows smaller than this (drops tiny popups)
 exclude = ""       # comma-separated app names to never ring, e.g. "Finder, Spotlight"
+
+[shake]
+# Focus-shake: a quick horizontal jiggle of the focused window when
+# focus changes. Unlike the ring, this MOVES the real window via AX, so
+# it needs Accessibility (grant halo in System Settings → Privacy &
+# Security → Accessibility). Position only — never size — and it restores
+# the exact origin, so neighbouring windows are never affected. Lazy-AX
+# apps (Chrome, Calendar) won't move. Set shake = false to stay
+# permission-free.
+shake = true
+shake-amplitude = 10      # peak horizontal swing in points
+shake-duration-ms = 250   # total shake duration

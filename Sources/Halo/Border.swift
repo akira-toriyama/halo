@@ -21,6 +21,7 @@ final class BorderController {
     private let overlay = NSWindow(contentRect: .zero, styleMask: [.borderless],
                                    backing: .buffered, defer: true)
     private let fx = BorderFX()
+    private let shake = WindowShake()
     private let ring: RingView
     private let selfPID = ProcessInfo.processInfo.processIdentifier
     private var lastWID: UInt32 = 0
@@ -29,6 +30,8 @@ final class BorderController {
         self.cfg = config
         self.events = events
         self.ring = RingView(config: config, fx: fx)
+        shake.amplitude = config.shakeAmplitude
+        shake.durationMs = config.shakeDurationMs
         overlay.isOpaque = false
         overlay.backgroundColor = .clear
         overlay.ignoresMouseEvents = true               // click-through
@@ -75,7 +78,7 @@ final class BorderController {
         if resubscribe {
             events.requestWindows(info.compactMap { $0[kCGWindowNumber as String] as? UInt32 })
         }
-        guard let (wid, cg) = focused(in: info) else { overlay.orderOut(nil); lastWID = 0; return }
+        guard let (wid, pid, cg) = focused(in: info) else { overlay.orderOut(nil); lastWID = 0; return }
         let screenH = NSScreen.screens.first?.frame.height ?? 0      // CG (y-down) → Cocoa (y-up)
         let cocoa = CGRect(x: cg.origin.x, y: screenH - cg.origin.y - cg.height,
                            width: cg.width, height: cg.height)
@@ -83,14 +86,17 @@ final class BorderController {
         if !overlay.isVisible { overlay.orderFrontRegardless() }
         ring.needsDisplay = true
         if wid != lastWID {
+            let firstResolve = (lastWID == 0)       // don't shake just because halo launched
             lastWID = wid
             Log.debug(String(format: "focus → wid=%u via %@ (resolve %.2fms)", wid, trigger, resolveMs))
             fx.flash()
+            if cfg.shake && !firstResolve { shake.fire(pid: pid_t(pid)) }
         }
     }
 
     /// Frontmost layer-0 window not owned by us / not excluded, from a snapshot.
-    private func focused(in info: [[String: Any]]) -> (UInt32, CGRect)? {
+    /// Returns its CGWindowID, owning pid, and CG bounds.
+    private func focused(in info: [[String: Any]]) -> (UInt32, Int32, CGRect)? {
         for d in info {
             guard let pid = d[kCGWindowOwnerPID as String] as? Int32, pid != selfPID,
                   let wid = d[kCGWindowNumber as String] as? UInt32,
@@ -100,7 +106,7 @@ final class BorderController {
                   let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"],
                   w >= cfg.minSize, h >= cfg.minSize
             else { continue }
-            return (wid, CGRect(x: x, y: y, width: w, height: h))
+            return (wid, pid, CGRect(x: x, y: y, width: w, height: h))
         }
         return nil
     }
