@@ -20,13 +20,27 @@ facet の「隣接機能は sibling repo に置く」決定に従う。)
   (read-only な private SkyLight) で、透明なオーバーレイを描くだけ ——
   窓を動かしたり触ったりは一切しない。
 
-## ビルド / 実行
+## インストール
+
+**Homebrew (ソースからビルド):**
 
 ```sh
-swift build -c release
-.build/release/halo &           # バックグラウンド agent として常駐 (Dock アイコンなし)
-HALO_DEBUG=1 .build/release/halo 2>&1 | tee /tmp/halo-run.log   # 詳細ログ
+brew install akira-toriyama/tap/halo
+open "$(brew --prefix)/opt/halo/Halo.app"
 ```
+
+**ビルド済み (`Halo.zip` — [Releases](https://github.com/akira-toriyama/halo/releases)):**
+ad-hoc 署名 (公証なし) なので、ダウンロード時に macOS が隔離する。
+`/Applications` に展開した後:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Halo.app
+open /Applications/Halo.app
+```
+
+halo は `LSUIElement` agent (Dock アイコンなし・フォーカスを奪わない)
+で、**権限は一切不要** —— read-only な private SkyLight で窓の座標を
+読み、クリックを透過するオーバーレイを描くだけ。起動すればそれで動く。
 
 ## 設定
 
@@ -50,9 +64,25 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
 
 未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。
 
-ローカル開発: `./run.sh` (release ビルド + HALO_DEBUG で再起動)・
-`./stop.sh` (停止)。コミットは facet ファミリーの gitmoji + Conventional
-Commits 規約 (`git config core.hooksPath scripts/hooks`)。
+## ビルド / 実行 (開発)
+
+デプロイフローは facet に揃えてある: `package.sh` が `Halo.app` を
+組み立て、`run.sh` がビルド + 再起動、リリースは GitHub の rolling
+draft、publish で Homebrew が自動更新される。
+
+```sh
+./run.sh          # release ビルド → Halo.app 組み立て → 再起動 (HALO_DEBUG on → /tmp/halo.log)
+./stop.sh         # 起動中の halo を全部停止 (bundle / 生バイナリ両方)
+./package.sh      # Halo.app の組み立てだけ (ad-hoc 署名)
+
+swift build -c release && .build/release/halo &   # bundle なしの生バイナリ
+```
+
+halo は TCC 権限を一切使わないので、facet と違って自己署名証明書の
+手順も dev/release のバンドル分割も無い —— ad-hoc 署名で十分。コミットは
+facet ファミリーの gitmoji + Conventional Commits 規約
+(`git config core.hooksPath scripts/hooks`; 詳細は
+[docs/commit-convention.md](docs/commit-convention.md))。
 
 ## 仕組み
 

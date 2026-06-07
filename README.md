@@ -20,13 +20,27 @@ repos" decision.)
   private SkyLight) and draws a transparent overlay — it never moves or
   touches your windows.
 
-## Build / run
+## Install
+
+**Homebrew (build from source):**
 
 ```sh
-swift build -c release
-.build/release/halo &           # runs as a background agent (no Dock icon)
-HALO_DEBUG=1 .build/release/halo 2>&1 | tee /tmp/halo-run.log   # verbose
+brew install akira-toriyama/tap/halo
+open "$(brew --prefix)/opt/halo/Halo.app"
 ```
+
+**Prebuilt (`Halo.zip` from [Releases](https://github.com/akira-toriyama/halo/releases)):**
+the app is ad-hoc signed (not notarized), so macOS quarantines it on
+download. After unzipping to `/Applications`:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Halo.app
+open /Applications/Halo.app
+```
+
+halo is an `LSUIElement` agent (no Dock icon, never steals focus) and
+needs **no permissions** — it only reads window geometry via read-only
+private SkyLight and draws a click-through overlay. Just launch it.
 
 ## Configure
 
@@ -50,9 +64,25 @@ Keys mirror facet's `[border]` surface:
 
 Unknown or malformed keys are ignored and keep the default.
 
-For local dev: `./run.sh` (build release + relaunch with `HALO_DEBUG`),
-`./stop.sh` (kill it). Commits follow the facet-family gitmoji +
-Conventional Commits convention (`git config core.hooksPath scripts/hooks`).
+## Build / run (dev)
+
+The deploy flow mirrors facet's: `package.sh` assembles `Halo.app`,
+`run.sh` builds + relaunches it, releases are a rolling GitHub draft, and
+Homebrew is bumped automatically on publish.
+
+```sh
+./run.sh          # build release → assemble Halo.app → relaunch (HALO_DEBUG on → /tmp/halo.log)
+./stop.sh         # kill every running halo (bundle or raw binary)
+./package.sh      # just assemble Halo.app (ad-hoc signed)
+
+swift build -c release && .build/release/halo &   # raw binary, no bundle
+```
+
+halo touches no TCC-gated APIs, so — unlike facet — there's no
+self-signed-cert step and no dev/release bundle split: ad-hoc signing is
+enough. Commits follow the facet-family gitmoji + Conventional Commits
+convention (`git config core.hooksPath scripts/hooks`; see
+[docs/commit-convention.md](docs/commit-convention.md)).
 
 ## How it works
 
