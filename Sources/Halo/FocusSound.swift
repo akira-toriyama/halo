@@ -3,8 +3,8 @@ import AppKit
 // Focus-sound — plays a short audio cue when focus changes to a
 // different window. A sibling-repo "satellite" alongside the ring, the
 // focus flash, and the shake: the third focus-change feedback modality
-// (visual flash, physical jiggle, now an audible cue). Ported from the
-// user's eventfx `window_focused → afplay` hook as eventfx is retired.
+// (visual flash, physical jiggle, now an audible cue). Reimplements an
+// older `window_focused → afplay` hook directly inside halo.
 //
 // User-supplied file, OFF by default: point `sound` at an audio path in
 // config and it plays at `sound-volume`; leave it empty and halo stays
