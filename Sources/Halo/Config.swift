@@ -16,7 +16,7 @@ struct HaloConfig {
     var cycleColors: Bool    = false       // loop a non-rainbow effect through its flash palette
     var minWidth: CGFloat?   = nil         // set both min/max (max>min) → width breathes
     var maxWidth: CGFloat?   = nil
-    var color: NSColor       = NSColor(hex: "#39C5C8") ?? .systemTeal   // resting color when effect = off
+    var color: NSColor       = NSColor(HexColor(0x39C5C8))   // resting color when effect = off
 
     // --- halo-specific geometry / scope ---
     var cornerRadius: CGFloat = 10
@@ -61,7 +61,7 @@ struct HaloConfig {
             case "cycle-colors":  c.cycleColors = (value == "true")
             case "min-width":     if let v = Double(value) { c.minWidth = CGFloat(v) }
             case "max-width":     if let v = Double(value) { c.maxWidth = CGFloat(v) }
-            case "color":         if let v = NSColor(hex: value) { c.color = v }
+            case "color":         if let v = parseColorToken(value) { c.color = NSColor(v) }
             case "corner-radius": if let v = Double(value) { c.cornerRadius = CGFloat(v) }
             case "pad":           if let v = Double(value) { c.pad = CGFloat(v) }
             case "min-size":      if let v = Double(value) { c.minSize = CGFloat(v) }
@@ -72,12 +72,22 @@ struct HaloConfig {
             case "shake-duration-ms": if let v = Double(value) { c.shakeDurationMs = max(1, v) }
             case "sound":             c.sound = value
             case "sound-volume":      if let v = Double(value) { c.soundVolume = max(0, min(1, v)) }
-            case "line-pets":         c.linePets = value
-                                          .trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
-                                          .split(separator: ",")
-                                          .compactMap { LinePet(rawValue: $0
-                                              .trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'"))
-                                              .lowercased()) }
+            case "line-pets":
+                // Clamp-and-log (family standard): unknown pet names are
+                // dropped with a trace instead of vanishing silently.
+                let tokens = value
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'"))
+                             .lowercased() }
+                    .filter { !$0.isEmpty }
+                let unknown = tokens.filter { !canonicalLinePetNames.contains($0) }
+                if !unknown.isEmpty {
+                    Log.line("config: line-pets contains unrecognised "
+                             + "entry \(unknown.joined(separator: ", ")) — dropped "
+                             + "(valid: \(canonicalLinePetNames.sorted().joined(separator: ", ")))")
+                }
+                c.linePets = tokens.compactMap { LinePet(rawValue: $0) }
             case "pet-scale":         if let v = Double(value) { c.petScale = max(0.1, CGFloat(v)) }
             case "pet-lap-seconds":   if let v = Double(value) { c.petLapSeconds = max(0.5, CGFloat(v)) }
             default: break
@@ -87,14 +97,8 @@ struct HaloConfig {
     }
 }
 
-extension NSColor {
-    /// `#RRGGBB` (or `RRGGBB`) string → sRGB color; nil on malformed input.
-    convenience init?(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespaces)
-        if s.hasPrefix("#") { s.removeFirst() }
-        guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
-        self.init(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
-                  green:   CGFloat((v >> 8) & 0xFF) / 255,
-                  blue:    CGFloat(v & 0xFF) / 255, alpha: 1)
-    }
-}
+// (The `color` key parses via sill's shared grammar — `parseColorToken`
+// from Palette, re-exported through Effects, materialized with the 0.6
+// `NSColor(_ hex: HexColor)` bridge. The old local 6-digit-only
+// `NSColor(hex: String)` extension is retired; the shared grammar is a
+// superset: named colors, #rgb, #rrggbb, #rrggbbaa.)
