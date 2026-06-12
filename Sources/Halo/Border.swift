@@ -151,8 +151,7 @@ final class BorderController {
         for d in info {
             guard let pid = d[kCGWindowOwnerPID as String] as? Int32, pid != selfPID,
                   let wid = d[kCGWindowNumber as String] as? UInt32,
-                  let owner = d[kCGWindowOwnerName as String] as? String,
-                  !cfg.excludedApps.contains(owner),
+                  !cfg.isExcluded(pid: pid),
                   let b = d[kCGWindowBounds as String] as? [String: CGFloat],
                   let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"],
                   w >= cfg.minSize, h >= cfg.minSize
