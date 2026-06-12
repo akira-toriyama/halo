@@ -1,7 +1,8 @@
 # SwiftPM
 .build/
 .swiftpm/
-Package.resolved
+# Package.resolved IS committed — halo pins `sill` by url + SemVer, so the
+# lockfile gives reproducible builds and lets dependabot bump it.
 *.xcodeproj/
 *.xcworkspace/
 

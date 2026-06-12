@@ -1,28 +1,55 @@
-// Neon-border animator — ported from facet's FacetView/BorderFX.swift.
-// Holds the border config + live animation state (rainbow hue cycle,
-// width breath, focus flash) and drives one 30 Hz timer; the ring view
-// renders the current `color` / `width` / `glow` in its `draw(_:)` by
-// reading these values. The owner supplies `onRepaint` (→ needsDisplay).
+// Neon-border animator — halo's LOCAL ring animation engine. Holds the
+// border config + live animation state (rainbow hue cycle, width breath,
+// focus flash) and drives one 30 Hz timer; the ring view renders the
+// current `color` / `width` / `glow` in its `draw(_:)` by reading these
+// values. The owner supplies `onRepaint` (→ needsDisplay).
 //
-// Only change from facet: facet's "off" fallback was `pal.accent` (the
-// panel theme accent); halo has no panel palette, so it falls back to a
-// configurable `baseColor` instead.
-
-import AppKit
-
+// The effect PALETTES (neon/cyber/vapor/kawaii/rainbow/chomp) + the pure
+// `blendThrough` cycle come from sill's `Effects` (`EffectSpec`), shared
+// across the family — halo no longer hand-copies them from facet. The
+// animator itself (timer, breathing, flash sequencing, `baseColor`
+// fallback) is halo-specific motion and stays local. facet's "off"
+// fallback was `pal.accent`; halo has no panel palette, so it falls back
+// to a configurable `baseColor` instead.
+//
 // Not @MainActor (unlike facet's): halo is single-threaded on the main
 // run loop, so the isolation just propagates friction with no safety gain.
+
+import AppKit
+import Effects
+
+/// `0xRRGGBB` → sRGB color. The one-line bridge from sill's pure UInt32
+/// `EffectSpec` hex to the `NSColor`s the ring actually draws. (Config's
+/// `NSColor(hex:String)` is a separate parser for the user's `color` key.)
+extension NSColor {
+    convenience init(hex: UInt32, _ a: CGFloat = 1) {
+        self.init(srgbRed: CGFloat((hex >> 16) & 0xff) / 255,
+                  green:   CGFloat((hex >> 8)  & 0xff) / 255,
+                  blue:    CGFloat( hex        & 0xff) / 255,
+                  alpha:   a)
+    }
+}
+
 final class BorderFX {
     // Config (from the border config).
-    private var fx: BorderEffect?
+    private var fx: EffectSpec?
     private var glowOn = false
     private var baseW: CGFloat = 3
     private var cycleSeconds: CGFloat = 6
     private var minW: CGFloat?
     private var maxW: CGFloat?
     private var cycleColors = false
+    /// Keep the repaint timer running continuously (line-pets orbit the
+    /// ring forever while a window is focused — they're driven by
+    /// wall-clock time in RingView, so they just need steady redraws).
+    private var petsActive = false
     /// Resting color when no effect is active ("off").
     var baseColor: NSColor = .systemTeal
+
+    // NSColors resolved from `fx` once at configure — `EffectSpec` is pure
+    // UInt32 hex, the ring draws `NSColor`, so convert at the seam.
+    private var steadyColor: NSColor = .systemTeal
+    private var flashColors: [NSColor] = []
 
     // Live animation state.
     private var cyclePhase: CGFloat = 0
@@ -37,8 +64,11 @@ final class BorderFX {
 
     func configure(effectName: String, glow: Bool, width: CGFloat,
                    cycleSeconds cs: CGFloat, cycleColors cc: Bool,
-                   minWidth: CGFloat?, maxWidth: CGFloat?, baseColor bc: NSColor) {
-        fx = borderEffectFor(effectName)
+                   minWidth: CGFloat?, maxWidth: CGFloat?, baseColor bc: NSColor,
+                   hasPets: Bool) {
+        fx = borderEffectFor(effectName)                  // sill's catalog → EffectSpec?
+        steadyColor = fx.map { NSColor(hex: $0.steady) } ?? bc
+        flashColors = fx?.flash.map { NSColor(hex: $0) } ?? []
         glowOn = glow
         baseW = width
         cycleSeconds = max(1, cs)
@@ -46,6 +76,7 @@ final class BorderFX {
         minW = minWidth
         maxW = maxWidth
         baseColor = bc
+        petsActive = hasPets
         updateTimer()
         onRepaint?()
     }
@@ -68,8 +99,11 @@ final class BorderFX {
         if flashing { return flashSeq[flashStep] }
         guard let fx else { return baseColor }
         if fx.cycles { return NSColor(hue: cyclePhase, saturation: 0.9, brightness: 1, alpha: 1) }
-        if cycleColors, !fx.flash.isEmpty { return blendThrough(fx.flash, at: cyclePhase) }
-        return fx.steady
+        if cycleColors, !fx.flash.isEmpty {
+            let c = blendThrough(fx.flash, at: Double(cyclePhase))   // sill's pure cycle
+            return NSColor(srgbRed: CGFloat(c.r), green: CGFloat(c.g), blue: CGFloat(c.b), alpha: 1)
+        }
+        return steadyColor
     }
 
     /// Current width: breathing min↔max (raised cosine) or fixed, +1.5 on flash.
@@ -93,7 +127,7 @@ final class BorderFX {
             if fx.flash.count > 1 { while i == last { i = Int.random(in: 0..<fx.flash.count) } }
             idxs.append(i); last = i
         }
-        flashSeq = idxs.map { fx.flash[$0] }
+        flashSeq = idxs.map { flashColors[$0] }
         flashStep = 0
         updateTimer()
         onRepaint?()
@@ -102,7 +136,7 @@ final class BorderFX {
     func stop() { stopTimer() }
 
     private func updateTimer() {
-        if (fx != nil && cyclingOrBreathing) || flashing { startTimer() } else { stopTimer() }
+        if (fx != nil && cyclingOrBreathing) || flashing || petsActive { startTimer() } else { stopTimer() }
     }
 
     private func startTimer() {
@@ -126,6 +160,6 @@ final class BorderFX {
             if cyclePhase >= 1 { cyclePhase -= 1 }
         }
         onRepaint?()
-        if !flashing && !(fx != nil && cyclingOrBreathing) { stopTimer() }
+        if !flashing && !(fx != nil && cyclingOrBreathing) && !petsActive { stopTimer() }
     }
 }

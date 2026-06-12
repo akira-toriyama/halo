@@ -59,8 +59,10 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
 
 キーは facet の `[border]` に揃えてある:
 
-- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | random`
-  (リングに乗せるパレット。focus フラッシュはこれを点滅する)
+- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | chomp | random`
+  (リングに乗せるパレット。focus フラッシュはこれを点滅する。`chomp` は
+  facet・wand と共有するアーケード effect —— 静止は青、点滅で
+  pellet 黄 / ghost 赤)
 - `glow`, `width`, `color` (`effect = off` 時の静止色)
 - `cycle-seconds`, `cycle-colors` (rainbow 以外も自分のパレットを循環),
   `min-width` / `max-width` (両方指定で太さが呼吸する)
@@ -74,6 +76,12 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
   フラッシュ・shake に続く 3 つ目の focus フィードバック。権限不要・
   音源は同梱しない (自前ファイルを指す)・latest-wins なので alt-tab
   連打でも音が積み重ならない。
+- `[pets]` — `line-pets` (フォーカス窓のリングを**周回するアーケード
+  スプライト**のリスト。例 `["chomp", "ghost"]`・空 `[]` = OFF)・
+  `pet-scale`・`pet-lap-seconds`(窓を1周する秒数・窓サイズに依らず
+  一定)。小さなペットがリングを追いかけ合って回る。opt-in・権限
+  不要・theme 非依存 (各ペットのシルエットが自前の色)。sill の共有描画
+  —— facet の tree・wand のカードにも同じペットが出る。
 
 未知 / 不正なキーは無視されデフォルトのまま (タイポで壊れない)。編集は
 **即時反映** —— halo が `config.toml` を ~0.4s でホットリロードする
