@@ -13,6 +13,8 @@ struct HaloConfig {
     var glow: Bool           = true
     var width: CGFloat       = 3
     var cycleSeconds: CGFloat = 6          // rainbow / cycle-colors / breath period
+                                            // (config key is `color-cycle-ms`; stored in
+                                            //  seconds because the 30 Hz tick divides by it)
     var cycleColors: Bool    = false       // loop a non-rainbow effect through its flash palette
     var minWidth: CGFloat?   = nil         // set both min/max (max>min) → width breathes
     var maxWidth: CGFloat?   = nil
@@ -22,7 +24,18 @@ struct HaloConfig {
     var cornerRadius: CGFloat = 10
     var pad: CGFloat         = 4            // gap window edge → ring
     var minSize: CGFloat     = 80          // ignore tiny popups
+    /// `[exclude].apps` — bundle-id globs (family-shared shape; wand's
+    /// grammar: `*` / `?`, e.g. "com.apple.finder", "*chrome*").
     var excludedApps: [String] = []
+
+    /// True when `pid`'s app matches an `[exclude].apps` glob. Resolves
+    /// the bundle id lazily — only when an exclusion is configured.
+    func isExcluded(pid: Int32) -> Bool {
+        guard !excludedApps.isEmpty else { return false }
+        let bid = NSRunningApplication(processIdentifier: pid)?
+            .bundleIdentifier ?? ""
+        return excludedApps.contains { globMatch($0, bid) }
+    }
 
     // --- focus shake (moves the real window — needs Accessibility) ---
     var shake: Bool             = true     // jiggle the focused window on focus change
@@ -57,7 +70,7 @@ struct HaloConfig {
             case "effect":        if canonicalEffectNames.contains(value.lowercased()) { c.effect = value.lowercased() }
             case "glow":          c.glow = (value == "true")
             case "width":         if let v = Double(value) { c.width = CGFloat(v) }
-            case "cycle-seconds": if let v = Double(value) { c.cycleSeconds = max(1, CGFloat(v)) }
+            case "color-cycle-ms": if let v = Double(value) { c.cycleSeconds = max(100, CGFloat(v)) / 1000 }
             case "cycle-colors":  c.cycleColors = (value == "true")
             case "min-width":     if let v = Double(value) { c.minWidth = CGFloat(v) }
             case "max-width":     if let v = Double(value) { c.maxWidth = CGFloat(v) }
@@ -65,8 +78,11 @@ struct HaloConfig {
             case "corner-radius": if let v = Double(value) { c.cornerRadius = CGFloat(v) }
             case "pad":           if let v = Double(value) { c.pad = CGFloat(v) }
             case "min-size":      if let v = Double(value) { c.minSize = CGFloat(v) }
-            case "exclude":       c.excludedApps = value.split(separator: ",")
-                                      .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            case "apps":          c.excludedApps = value
+                                      .trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
+                                      .split(separator: ",")
+                                      .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'")) }
+                                      .filter { !$0.isEmpty }
             case "shake":             c.shake = (value == "true")
             case "shake-amplitude":   if let v = Double(value) { c.shakeAmplitude = CGFloat(v) }
             case "shake-duration-ms": if let v = Double(value) { c.shakeDurationMs = max(1, v) }
@@ -102,3 +118,19 @@ struct HaloConfig {
 // `NSColor(_ hex: HexColor)` bridge. The old local 6-digit-only
 // `NSColor(hex: String)` extension is retired; the shared grammar is a
 // superset: named colors, #rgb, #rrggbb, #rrggbbaa.)
+
+/// Anchored `*` / `?` glob match, case-insensitive — the same grammar
+/// wand's `[exclude].apps` documents, so one exclusion list reads the
+/// same family-wide.
+func globMatch(_ pattern: String, _ s: String) -> Bool {
+    var re = "^"
+    for ch in pattern.lowercased() {
+        switch ch {
+        case "*": re += ".*"
+        case "?": re += "."
+        default:  re += NSRegularExpression.escapedPattern(for: String(ch))
+        }
+    }
+    re += "$"
+    return s.lowercased().range(of: re, options: .regularExpression) != nil
+}

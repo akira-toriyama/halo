@@ -63,9 +63,11 @@ Keys mirror facet's `[border]` surface:
   `chomp` is the cross-app arcade effect shared with facet & wand —
   blue at rest, blinking pellet-yellow / ghost-red)
 - `glow`, `width`, `color` (resting color when `effect = off`)
-- `cycle-seconds`, `cycle-colors` (loop a non-rainbow effect through its
+- `color-cycle-ms`, `cycle-colors` (loop a non-rainbow effect through its
   palette), `min-width` / `max-width` (set both to make the width breathe)
-- `corner-radius`, `pad`, `min-size`, `exclude`
+- `corner-radius`, `pad`, `min-size`
+- `[exclude]` — `apps` (bundle-id globs that never get a ring, e.g.
+  `["com.apple.finder", "*chrome*"]` — the family-shared shape)
 - `[shake]` — `shake` (focus-shake on/off), `shake-amplitude` (peak
   horizontal swing in points), `shake-duration-ms`. On focus change the
   focused window does a quick horizontal jiggle and snaps back to its

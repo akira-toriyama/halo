@@ -19,11 +19,16 @@ width = 3
 color = "#39C5C8"
 
 # Animation (all optional):
-# rainbow rotates its hue over cycle-seconds; for the other effects set
-# cycle-colors = true to loop them through their own flash palette.
-cycle-seconds = 6
+# rainbow rotates its hue over color-cycle-ms (integer milliseconds);
+# for the other effects set cycle-colors = true to loop them through
+# their own flash palette.
+#
+#   1000  — fast churn
+#   6000  — default; calm rotation
+#   12000 — slow drift
+color-cycle-ms = 6000
 cycle-colors = false
-# Set both (max > min) to make the width "breathe" over cycle-seconds.
+# Set both (max > min) to make the width "breathe" over color-cycle-ms.
 # min-width = 2
 # max-width = 5
 
@@ -31,7 +36,12 @@ cycle-colors = false
 corner-radius = 10
 pad = 4            # gap between window edge and ring
 min-size = 80      # ignore windows smaller than this (drops tiny popups)
-exclude = ""       # comma-separated app names to never ring, e.g. "Finder, Spotlight"
+
+[exclude]
+# Bundle IDs that never get a ring. Array of globs (`*` / `?`), the
+# family-shared shape — same grammar as wand's [exclude].apps.
+#   apps = ["com.apple.finder", "*chrome*"]
+apps = []
 
 [shake]
 # Focus-shake: a quick horizontal jiggle of the focused window when

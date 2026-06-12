@@ -64,9 +64,11 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
   facet・wand と共有するアーケード effect —— 静止は青、点滅で
   pellet 黄 / ghost 赤)
 - `glow`, `width`, `color` (`effect = off` 時の静止色)
-- `cycle-seconds`, `cycle-colors` (rainbow 以外も自分のパレットを循環),
+- `color-cycle-ms`, `cycle-colors` (rainbow 以外も自分のパレットを循環),
   `min-width` / `max-width` (両方指定で太さが呼吸する)
-- `corner-radius`, `pad`, `min-size`, `exclude`
+- `corner-radius`, `pad`, `min-size`
+- `[exclude]` — `apps` (リングを出さない bundle-id glob 配列。例
+  `["com.apple.finder", "*chrome*"]` —— family 共通の形)
 - `[shake]` — `shake` (focus-shake の on/off)・`shake-amplitude` (左右
   振幅 pt)・`shake-duration-ms`。フォーカス変化でフォーカス窓が一瞬
   左右に揺れて**厳密に元位置へ戻る** (位置のみ＝隣の窓は不変)。AX で
