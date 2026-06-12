@@ -58,8 +58,10 @@ curl -fsSL https://raw.githubusercontent.com/akira-toriyama/halo/main/config.tom
 
 Keys mirror facet's `[border]` surface:
 
-- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | random`
-  (the palette layered on the ring; the focus flash blinks through it)
+- `effect` — `off | neon | cyber | vapor | kawaii | rainbow | chomp | random`
+  (the palette layered on the ring; the focus flash blinks through it.
+  `chomp` is the cross-app arcade effect shared with facet & wand —
+  blue at rest, blinking pellet-yellow / ghost-red)
 - `glow`, `width`, `color` (resting color when `effect = off`)
 - `cycle-seconds`, `cycle-colors` (loop a non-rainbow effect through its
   palette), `min-width` / `max-width` (set both to make the width breathe)
@@ -74,6 +76,13 @@ Keys mirror facet's `[border]` surface:
   third focus feedback alongside the ring flash and the shake. Needs no
   permission, ships no bundled sound (point it at your own file), and is
   latest-wins so a fast alt-tab burst never stacks.
+- `[pets]` — `line-pets` (a list of arcade sprites that **orbit the ring**
+  of the focused window, e.g. `["chomp", "ghost"]`; empty `[]` = off),
+  `pet-scale`, `pet-lap-seconds` (time to circle the window once, constant
+  at any window size). Small pets chase each other around the ring.
+  Opt-in, needs no permission, theme-agnostic (each pet's silhouette is
+  its own colour). The shared sill drawing — facet's tree and wand's cards
+  grow the same pets.
 
 Unknown or malformed keys are ignored and keep the default. Edits apply
 **live** — halo hot-reloads `config.toml` within ~0.4s, no restart.

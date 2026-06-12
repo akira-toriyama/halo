@@ -1,4 +1,6 @@
 import AppKit
+import QuartzCore   // CACurrentMediaTime — line-pet animation clock
+import Effects      // sill: drawLinePets / LinePet
 
 // The ring overlay + its driver.
 //
@@ -8,7 +10,8 @@ import AppKit
 // on focus change. Driven by WindowServerEvents: each MOVE/RESIZE re-hugs
 // (smooth follow during a drag), each FRONT/REORDER re-resolves the focused
 // window. The ring's look (color / width / glow / cycle / flash) is owned
-// by BorderFX (facet's border-effect engine, ported).
+// by BorderFX — halo's local animator over sill's shared effect catalog
+// (`Effects.EffectSpec`).
 //
 // Margin: the overlay frame is the window rect expanded by `glowPad` so the
 // glow can bloom OUTWARD past the window edge (the ring itself sits `pad`
@@ -55,7 +58,8 @@ final class BorderController {
         shake.durationMs = c.shakeDurationMs
         fx.configure(effectName: c.effect, glow: c.glow, width: c.width,
                      cycleSeconds: c.cycleSeconds, cycleColors: c.cycleColors,
-                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color)
+                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color,
+                     hasPets: !c.linePets.isEmpty)
         focusSound.configure(path: c.sound, volume: c.soundVolume)
         ring.needsDisplay = true
     }
@@ -185,6 +189,9 @@ final class RingView: NSView {
         path.lineWidth = fx.width
         let stroke = fx.color
         stroke.setStroke()
+        // Isolate the glow shadow to the ring stroke so it doesn't bloom
+        // under the pets drawn next.
+        NSGraphicsContext.saveGraphicsState()
         if fx.glowEnabled {
             let shadow = NSShadow()
             shadow.shadowColor = stroke
@@ -192,5 +199,20 @@ final class RingView: NSView {
             shadow.set()
         }
         path.stroke()
+        NSGraphicsContext.restoreGraphicsState()
+
+        // Arcade pets orbiting the ring (opt-in via `line-pets`). They ride
+        // the same `rect` the ring strokes, so they walk ON the border. The
+        // shared sill drawing; halo owns only the rect + the redraw cadence
+        // (BorderFX keeps its timer alive while pets are configured).
+        if !cfg.linePets.isEmpty {
+            // Derive pt/s from a desired lap time so the orbit feels equally
+            // lively at any window size — a constant pt/s would crawl on a big
+            // window and sprint on a small one.
+            let perim = 2 * (rect.width + rect.height)
+            let speed = perim / max(0.5, cfg.petLapSeconds)
+            drawLinePets(cfg.linePets, on: rect, now: CACurrentMediaTime(),
+                         scale: cfg.petScale, speed: speed)
+        }
     }
 }

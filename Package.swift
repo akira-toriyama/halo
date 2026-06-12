@@ -25,9 +25,23 @@ let package = Package(
     products: [
         .executable(name: "halo", targets: ["Halo"]),
     ],
+    dependencies: [
+        // sill — the swift app family's shared theming library. halo
+        // consumes ONLY the dynamic `Effects` atom: the border-effect
+        // catalog (neon/cyber/vapor/kawaii/rainbow/chomp), the pure
+        // `blendThrough` cycle, and the shared `LinePet` / `drawLinePets`
+        // (orbiting pets) — replacing the BorderEffect palettes it used to
+        // hand-copy from facet. No PaletteKit: halo draws only a ring, so
+        // it needs the effect DATA, not a resolved text/bg theme palette.
+        //
+        // Swap to `.package(path: "../sill")` for atomic local sill+halo
+        // editing during dev; the committed form pins the published tag.
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.5.0")),
+    ],
     targets: [
         .executableTarget(
             name: "Halo",
+            dependencies: [.product(name: "Effects", package: "sill")],
             swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

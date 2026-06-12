@@ -7,7 +7,9 @@
 
 [border]
 # Effect palette layered on the ring (mirrors facet's [border] effect):
-#   off | neon | cyber | vapor | kawaii | rainbow | random
+#   off | neon | cyber | vapor | kawaii | rainbow | chomp | random
+# (chomp = arcade blue ring blinking pellet-yellow / ghost-red; shares
+# the cross-app `chomp` effect with facet & wand.)
 effect = "neon"
 # Soft outward glow.
 glow = true
@@ -52,3 +54,15 @@ shake-duration-ms = 250   # total shake duration
 # Latest-wins — a fast alt-tab burst never stacks; only the newest plays.
 sound = ""                # audio file path; empty = off. e.g. "~/.local/share/sounds/window_focused.wav"
 sound-volume = 0.3        # 0.0 … 1.0
+
+[pets]
+# Line-pets: small arcade sprites that ORBIT the focused window's ring,
+# chasing each other around it (first leads, the rest trail at a fixed
+# gap). Opt-in (empty = off), needs NO permission, theme-agnostic — each
+# pet's silhouette is its own colour. Shared with facet & wand via sill.
+#   "chomp" — yellow chomping wedge
+#   "ghost" — red Blinky-style ghost (dome + eyes + skirt)
+line-pets = []            # e.g. ["chomp", "ghost"]; empty [] = off
+pet-scale = 1.5           # pet size multiplier (halo has no font-size to scale from)
+pet-lap-seconds = 8       # seconds for a pet to circle the window once — constant at
+                          # any window size (lower = faster chase, higher = lazier)
