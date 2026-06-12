@@ -18,17 +18,9 @@
 import AppKit
 import Effects
 
-/// `0xRRGGBB` → sRGB color. The one-line bridge from sill's pure UInt32
-/// `EffectSpec` hex to the `NSColor`s the ring actually draws. (Config's
-/// `NSColor(hex:String)` is a separate parser for the user's `color` key.)
-extension NSColor {
-    convenience init(hex: UInt32, _ a: CGFloat = 1) {
-        self.init(srgbRed: CGFloat((hex >> 16) & 0xff) / 255,
-                  green:   CGFloat((hex >> 8)  & 0xff) / 255,
-                  blue:    CGFloat( hex        & 0xff) / 255,
-                  alpha:   a)
-    }
-}
+// (EffectSpec's pure UInt32 hexes materialize through sill 0.6's
+// `NSColor(_ hex: HexColor)` Effects bridge — the local extension this
+// file used to carry is retired.)
 
 final class BorderFX {
     // Config (from the border config).
@@ -67,8 +59,8 @@ final class BorderFX {
                    minWidth: CGFloat?, maxWidth: CGFloat?, baseColor bc: NSColor,
                    hasPets: Bool) {
         fx = borderEffectFor(effectName)                  // sill's catalog → EffectSpec?
-        steadyColor = fx.map { NSColor(hex: $0.steady) } ?? bc
-        flashColors = fx?.flash.map { NSColor(hex: $0) } ?? []
+        steadyColor = fx.map { NSColor(HexColor($0.steady)) } ?? bc
+        flashColors = fx?.flash.map { NSColor(HexColor($0)) } ?? []
         glowOn = glow
         baseW = width
         cycleSeconds = max(1, cs)

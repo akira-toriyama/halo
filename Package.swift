@@ -33,10 +33,14 @@ let package = Package(
         // (orbiting pets) — replacing the BorderEffect palettes it used to
         // hand-copy from facet. No PaletteKit: halo draws only a ring, so
         // it needs the effect DATA, not a resolved text/bg theme palette.
+        // Since 0.6.0 Effects `@_exported import`s Palette, so the pure
+        // vocabulary (canonicalLinePetNames, parseColorToken, HexColor)
+        // and the `NSColor(_ hex: HexColor)` bridge arrive with no extra
+        // product link.
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.5.0")),
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.6.0")),
     ],
     targets: [
         .executableTarget(
