@@ -40,7 +40,7 @@ let package = Package(
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.6.0")),
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.8.0")),
     ],
     targets: [
         .executableTarget(

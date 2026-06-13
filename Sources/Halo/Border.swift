@@ -31,6 +31,11 @@ final class BorderController {
     private var lastWID: UInt32 = 0
     private var didFirstResolve = false
     private var lastConfigMtime: Date?
+    /// The ONE 30 Hz redraw heartbeat — pumps `ring.needsDisplay` while the
+    /// border animates (rainbow / breathing / flash) OR line-pets orbit. Both
+    /// ride a single wall clock in `RingView.draw`; this is just the cadence,
+    /// not an animator (the math is sill's clockless `resolveBorder`).
+    private var redrawTimer: Timer?
 
     init(config: HaloConfig, events: WindowServerEvents) {
         self.cfg = config
@@ -44,7 +49,6 @@ final class BorderController {
         overlay.collectionBehavior = [.stationary, .ignoresCycle, .fullScreenAuxiliary]  // desktop-local (rides the Space slide)
         overlay.contentView = ring
 
-        fx.onRepaint = { [weak ring] in ring?.needsDisplay = true }
         applyConfig(config)
         lastConfigMtime = Self.configMtime()
     }
@@ -58,11 +62,40 @@ final class BorderController {
         shake.durationMs = c.shakeDurationMs
         fx.configure(effectName: c.effect, glow: c.glow, width: c.width,
                      cycleSeconds: c.cycleSeconds, cycleColors: c.cycleColors,
-                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color,
-                     hasPets: !c.linePets.isEmpty)
+                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color)
         focusSound.configure(path: c.sound, volume: c.soundVolume)
         ring.needsDisplay = true
+        syncRedraw()
     }
+
+    /// Start / stop the 30 Hz redraw heartbeat to match what's animating now
+    /// (border cycle / breath / flash, or line-pets orbiting forever while
+    /// configured). Called whenever the animated state can change: configure,
+    /// focus flash. A static border with no pets parks the timer entirely.
+    private func syncRedraw() {
+        if fx.animating(at: CACurrentMediaTime()) || !cfg.linePets.isEmpty {
+            startRedraw()
+        } else {
+            stopRedraw()
+        }
+    }
+
+    private func startRedraw() {
+        guard redrawTimer == nil else { return }
+        // 30 Hz, .common so it keeps ticking during interaction. Self-stops in
+        // the tick once nothing animates (the flash burst settles by wall-clock).
+        let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.ring.needsDisplay = true
+            if !(self.fx.animating(at: CACurrentMediaTime()) || !self.cfg.linePets.isEmpty) {
+                self.stopRedraw()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        redrawTimer = t
+    }
+
+    private func stopRedraw() { redrawTimer?.invalidate(); redrawTimer = nil }
 
     private static let configPath =
         ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
@@ -134,6 +167,7 @@ final class BorderController {
             lastWID = wid
             Log.debug(String(format: "focus → wid=%u via %@ (resolve %.2fms)", wid, trigger, resolveMs))
             fx.flash()
+            syncRedraw()
             // Gate the shake + sound on didFirstResolve (set once, never
             // reset) — NOT on lastWID, which the no-focus branch above resets
             // to 0; that would suppress them after any transient defocus.
@@ -185,8 +219,12 @@ final class RingView: NSView {
         let rect = bounds.insetBy(dx: glowPad - cfg.pad, dy: glowPad - cfg.pad)
         guard rect.width > 0, rect.height > 0 else { return }
         let path = NSBezierPath(roundedRect: rect, xRadius: cfg.cornerRadius, yRadius: cfg.cornerRadius)
-        path.lineWidth = fx.width
-        let stroke = fx.color
+        // ONE wall-clock sample for the whole frame: the border color/width and
+        // the pets below walk on the exact same `now` (the "one clock").
+        let now = CACurrentMediaTime()
+        let style = fx.sample(at: now)
+        path.lineWidth = style.width
+        let stroke = style.color
         stroke.setStroke()
         // Isolate the glow shadow to the ring stroke so it doesn't bloom
         // under the pets drawn next.
@@ -194,7 +232,7 @@ final class RingView: NSView {
         if fx.glowEnabled {
             let shadow = NSShadow()
             shadow.shadowColor = stroke
-            shadow.shadowBlurRadius = max(6, fx.width * 4)
+            shadow.shadowBlurRadius = max(6, style.width * 4)
             shadow.set()
         }
         path.stroke()
@@ -210,7 +248,7 @@ final class RingView: NSView {
             // window and sprint on a small one.
             let perim = 2 * (rect.width + rect.height)
             let speed = perim / max(0.5, cfg.petLapSeconds)
-            drawLinePets(cfg.linePets, on: rect, now: CACurrentMediaTime(),
+            drawLinePets(cfg.linePets, on: rect, now: now,
                          scale: cfg.petScale, speed: speed)
         }
     }
