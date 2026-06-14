@@ -45,6 +45,21 @@ final class HaloApp: NSObject, NSApplicationDelegate {
     }
 }
 
+// `--emit-schema` is a one-shot: print the `config.toml` JSON Schema
+// (Draft-07) to stdout and exit. Generated from the same declarative
+// `configSpec` that decodes the config, so the two can't drift. The repo
+// regenerates `config.schema.json` with `halo --emit-schema > config.schema.json`.
+if CommandLine.arguments.dropFirst().contains("--emit-schema") {
+    print(HaloConfig.jsonSchema, terminator: "")
+    exit(0)
+}
+
+// Refresh the taplo schema sidecar next to the user config so editor
+// completion/validation just works (idempotent; writes only on change,
+// and the watcher polls config.toml's mtime not this sibling, so no
+// hot-reload churn). Best-effort — never blocks start.
+HaloConfig.installSchema()
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)        // LSUIElement: agent, no Dock icon
 let delegate = HaloApp()

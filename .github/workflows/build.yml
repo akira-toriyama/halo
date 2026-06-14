@@ -19,12 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # Shared Swift build (setup-xcode + SPM cache + build). halo has no
-      # test target yet (single-threaded agent over private-SkyLight
-      # callbacks; nothing pure to unit-test) → run-tests: "false".
+      # Shared Swift build (setup-xcode + SPM cache + build + test). The
+      # HaloTests target is the config-schema drift guard: it asserts the
+      # committed config.schema.json equals `configSpec.jsonSchema()`, so the
+      # editor schema can never drift from the parser (CLT ships no XCTest,
+      # so this only runs here in CI).
       - uses: akira-toriyama/.github/actions/swift-build@main
-        with:
-          run-tests: "false"
 
       - name: Assemble & ad-hoc sign app bundle
         env:

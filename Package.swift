@@ -40,12 +40,32 @@ let package = Package(
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.8.0")),
+        // Floor 0.9.0 = the `ConfigSchema` module (one declarative `Spec`
+        // drives BOTH the config.toml decode AND the JSON Schema emitted for
+        // taplo completion — `halo --emit-schema`). 0.9.0 is an additive
+        // superset, so the existing Effects/Palette usage is unaffected.
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.9.0")),
     ],
     targets: [
         .executableTarget(
             name: "Halo",
-            dependencies: [.product(name: "Effects", package: "sill")],
+            dependencies: [
+                .product(name: "Effects", package: "sill"),
+                // Toml: the family's pure config parser (`Toml.parseFlat`).
+                .product(name: "Toml", package: "sill"),
+                // ConfigSchema: one declarative `Spec` drives BOTH the
+                // config.toml decode and the JSON Schema emitted for taplo
+                // completion (`halo --emit-schema`) — so the two never drift.
+                .product(name: "ConfigSchema", package: "sill"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v5)]),
+        // Drift guard: the committed config.schema.json must equal the live
+        // `configSpec.jsonSchema()` — so the editor schema can never drift
+        // from the parser. CLT ships no XCTest, so this runs in CI (the
+        // shared swift-build action's `swift test` step).
+        .testTarget(
+            name: "HaloTests",
+            dependencies: ["Halo"],
             swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

@@ -1,12 +1,20 @@
 import AppKit
+import ConfigSchema
 import Effects
+import Toml
 
 // halo configuration. Mirrors facet's `[border]` config surface (same
 // keys / semantics) so the two feel the same: an `effect` palette layered
 // on a base color, with glow / width / cycle / breath. Read once at launch
-// from ~/.config/halo/config.toml; `[section]` headers are skipped (halo's
-// config is flat), unknown / malformed keys keep their default (facet's
-// clamp-to-default — a typo can never break the ring).
+// from ~/.config/halo/config.toml; unknown / malformed keys keep their
+// default (facet's clamp-to-default — a typo can never break the ring).
+//
+// Decode is driven by ONE declarative `configSpec` (see
+// `HaloConfig+Spec.swift`), which ALSO emits the `config.toml` JSON Schema
+// (`halo --emit-schema`) — so the parser and the editor-completion schema
+// can never drift. The per-field `apply` closures reproduce the old
+// hand-written lowercase/validate/clamp/transform exactly (proven
+// byte-identical by the config-schema parity harness).
 struct HaloConfig {
     // --- border theme (mirror of facet [border]) ---
     var effect: String       = "neon"     // off | neon | cyber | vapor | kawaii | rainbow | chomp | random
@@ -52,63 +60,24 @@ struct HaloConfig {
     var petLapSeconds: CGFloat = 8         // seconds to orbit the ring once — window-size-independent
                                             // (constant pt/s would crawl on a big window, sprint on a small one)
 
+    /// The user config path (`~/.config/halo/config.toml`, tilde
+    /// expanded). The schema sidecar (`HaloConfig.schemaPath`) is written
+    /// next to it.
+    static var configFilePath: String {
+        ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
+    }
+
+    /// Read + decode `~/.config/halo/config.toml`. Missing / unreadable →
+    /// all defaults. The uniform `[block]` keys are driven by the single
+    /// declarative `configSpec` (which ALSO emits the JSON Schema — see
+    /// `HaloConfig+Spec.swift`), so the parse and the editor-completion
+    /// schema can never drift. Read-only by design: halo never writes the
+    /// user's config (only the schema sidecar, via `installSchema`).
     static func load() -> HaloConfig {
         var c = HaloConfig()
-        let path = ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
-        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return c }
-
-        for rawLine in text.split(separator: "\n") {
-            let line = rawLine.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
-                .first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
-            if line.isEmpty || line.hasPrefix("[") { continue }   // skip blanks + [section] headers
-            guard let eq = line.firstIndex(of: "=") else { continue }
-            let key = line[..<eq].trimmingCharacters(in: .whitespaces)
-            let value = line[line.index(after: eq)...]
-                .trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-            switch key {
-            case "effect":        if canonicalEffectNames.contains(value.lowercased()) { c.effect = value.lowercased() }
-            case "glow":          c.glow = (value == "true")
-            case "width":         if let v = Double(value) { c.width = CGFloat(v) }
-            case "color-cycle-ms": if let v = Double(value) { c.cycleSeconds = max(100, CGFloat(v)) / 1000 }
-            case "cycle-colors":  c.cycleColors = (value == "true")
-            case "min-width":     if let v = Double(value) { c.minWidth = CGFloat(v) }
-            case "max-width":     if let v = Double(value) { c.maxWidth = CGFloat(v) }
-            case "color":         if let v = parseColorToken(value) { c.color = NSColor(v) }
-            case "corner-radius": if let v = Double(value) { c.cornerRadius = CGFloat(v) }
-            case "pad":           if let v = Double(value) { c.pad = CGFloat(v) }
-            case "min-size":      if let v = Double(value) { c.minSize = CGFloat(v) }
-            case "apps":          c.excludedApps = value
-                                      .trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
-                                      .split(separator: ",")
-                                      .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'")) }
-                                      .filter { !$0.isEmpty }
-            case "shake":             c.shake = (value == "true")
-            case "shake-amplitude":   if let v = Double(value) { c.shakeAmplitude = CGFloat(v) }
-            case "shake-duration-ms": if let v = Double(value) { c.shakeDurationMs = max(1, v) }
-            case "sound":             c.sound = value
-            case "sound-volume":      if let v = Double(value) { c.soundVolume = max(0, min(1, v)) }
-            case "line-pets":
-                // Clamp-and-log (family standard): unknown pet names are
-                // dropped with a trace instead of vanishing silently.
-                let tokens = value
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
-                    .split(separator: ",")
-                    .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \t\"'"))
-                             .lowercased() }
-                    .filter { !$0.isEmpty }
-                let unknown = tokens.filter { !canonicalLinePetNames.contains($0) }
-                if !unknown.isEmpty {
-                    Log.line("config: line-pets contains unrecognised "
-                             + "entry \(unknown.joined(separator: ", ")) — dropped "
-                             + "(valid: \(canonicalLinePetNames.sorted().joined(separator: ", ")))")
-                }
-                c.linePets = tokens.compactMap { LinePet(rawValue: $0) }
-            case "pet-scale":         if let v = Double(value) { c.petScale = max(0.1, CGFloat(v)) }
-            case "pet-lap-seconds":   if let v = Double(value) { c.petLapSeconds = max(0.5, CGFloat(v)) }
-            default: break
-            }
-        }
+        guard let text = try? String(contentsOfFile: configFilePath, encoding: .utf8)
+        else { return c }
+        configSpec.decode(Toml.parseFlat(text).tables, into: &c)
         return c
     }
 }
