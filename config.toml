@@ -1,5 +1,12 @@
+#:schema ./config.schema.json
 # halo — active-window border. Source-of-truth config template.
 # Copy to ~/.config/halo/config.toml and edit. halo only READS it.
+#
+# The `#:schema` line above gives editors (taplo / Even Better TOML) key
+# + value completion and inline validation. halo writes this schema next
+# to your config on launch, and it's generated from halo's own config
+# parser (`halo --emit-schema`) — so it always matches the binary.
+#
 # Edits apply LIVE — halo watches this file and hot-reloads within ~0.4s,
 # no restart needed. Unknown / malformed keys keep their default, so a
 # typo can't break the ring. ([border] header is optional/cosmetic —

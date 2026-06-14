@@ -1,0 +1,170 @@
+{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "additionalProperties" : false,
+  "properties" : {
+    "border" : {
+      "additionalProperties" : false,
+      "description" : "Active-window ring: effect palette + base color, glow, width, cycle, breath.",
+      "properties" : {
+        "color" : {
+          "default" : "#39C5C8",
+          "description" : "Resting color when effect = off (name or #RRGGBB).",
+          "type" : "string"
+        },
+        "color-cycle-ms" : {
+          "default" : 6000,
+          "description" : "Animation period (ms): rainbow hue rotation / cycle-colors / width breath.",
+          "minimum" : 100,
+          "type" : "integer"
+        },
+        "corner-radius" : {
+          "default" : 10,
+          "description" : "Ring corner radius (points).",
+          "minimum" : 0,
+          "type" : "number"
+        },
+        "cycle-colors" : {
+          "default" : false,
+          "description" : "Loop a non-rainbow effect through its own flash palette.",
+          "type" : "boolean"
+        },
+        "effect" : {
+          "default" : "neon",
+          "description" : "Effect palette layered on the ring; unknown keeps default.",
+          "enum" : [
+            "neon",
+            "cyber",
+            "vapor",
+            "kawaii",
+            "rainbow",
+            "chomp",
+            "random",
+            "off"
+          ],
+          "type" : "string"
+        },
+        "glow" : {
+          "default" : true,
+          "description" : "Soft outward glow under the stroke.",
+          "type" : "boolean"
+        },
+        "max-width" : {
+          "description" : "Width-breathing ceil.",
+          "type" : "number"
+        },
+        "min-size" : {
+          "default" : 80,
+          "description" : "Ignore windows smaller than this (drops tiny popups).",
+          "minimum" : 0,
+          "type" : "number"
+        },
+        "min-width" : {
+          "description" : "Width-breathing floor (set with max-width, max > min).",
+          "type" : "number"
+        },
+        "pad" : {
+          "default" : 4,
+          "description" : "Gap between the window edge and the ring (points).",
+          "minimum" : 0,
+          "type" : "number"
+        },
+        "width" : {
+          "default" : 3,
+          "description" : "Ring line width (points).",
+          "minimum" : 0,
+          "type" : "number"
+        }
+      },
+      "type" : "object"
+    },
+    "exclude" : {
+      "additionalProperties" : false,
+      "description" : "Bundle IDs that never get a ring.",
+      "properties" : {
+        "apps" : {
+          "description" : "Bundle-id globs (`*` / `?`), e.g. \"com.apple.finder\", \"*chrome*\"; `[]` = none.",
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "type" : "object"
+    },
+    "pets" : {
+      "additionalProperties" : false,
+      "description" : "Line-pets: arcade sprites that orbit the ring (opt-in, no permission).",
+      "properties" : {
+        "line-pets" : {
+          "description" : "Pets orbiting the ring; `[]` = off. e.g. [\"chomp\", \"ghost\"].",
+          "items" : {
+            "enum" : [
+              "chomp",
+              "ghost"
+            ],
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "pet-lap-seconds" : {
+          "default" : 8,
+          "description" : "Seconds for a pet to circle the window once.",
+          "minimum" : 0.5,
+          "type" : "number"
+        },
+        "pet-scale" : {
+          "default" : 1.5,
+          "description" : "Pet size multiplier.",
+          "minimum" : 0.10000000000000001,
+          "type" : "number"
+        }
+      },
+      "type" : "object"
+    },
+    "shake" : {
+      "additionalProperties" : false,
+      "description" : "Focus-shake: a quick horizontal jiggle of the focused window (needs Accessibility).",
+      "properties" : {
+        "shake" : {
+          "default" : true,
+          "description" : "Jiggle the focused window on focus change.",
+          "type" : "boolean"
+        },
+        "shake-amplitude" : {
+          "default" : 10,
+          "description" : "Peak horizontal swing (points).",
+          "minimum" : 0,
+          "type" : "number"
+        },
+        "shake-duration-ms" : {
+          "default" : 250,
+          "description" : "Total shake duration (ms).",
+          "minimum" : 1,
+          "type" : "number"
+        }
+      },
+      "type" : "object"
+    },
+    "sound" : {
+      "additionalProperties" : false,
+      "description" : "Focus-sound: play a short audio cue on focus change (no permission).",
+      "properties" : {
+        "sound" : {
+          "default" : "",
+          "description" : "Audio file path; empty = off. e.g. \"~/.local/share/sounds/window_focused.wav\".",
+          "type" : "string"
+        },
+        "sound-volume" : {
+          "default" : 0.29999999999999999,
+          "description" : "Playback volume, 0.0 … 1.0.",
+          "maximum" : 1,
+          "minimum" : 0,
+          "type" : "number"
+        }
+      },
+      "type" : "object"
+    }
+  },
+  "title" : "halo config.toml",
+  "type" : "object"
+}
