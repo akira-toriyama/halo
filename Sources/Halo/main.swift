@@ -45,13 +45,57 @@ final class HaloApp: NSObject, NSApplicationDelegate {
     }
 }
 
+// CLI surface. halo is config-driven — `~/.config/halo/config.toml`
+// (hot-reloaded on save) is the entire control plane; there is no runtime
+// control CLI (atelier Phase 3 classifies halo OUT of the domain-verb
+// grammar — inventing a control CLI would be a feature, not a refactor).
+// The only recognised flags are `--emit-schema` and the family `-h`/`--help`
+// carve-out. ANY other argument is rejected loudly with exit 2 (the family
+// "no silent fallback" sub-rule) instead of being silently ignored while
+// halo launches anyway. A normal agent launch (`open Halo.app`, brew
+// services, LaunchAgent) passes no argv, so this never blocks startup.
+let cliArgs = Array(CommandLine.arguments.dropFirst())
+
+if cliArgs.contains("--help") || cliArgs.contains("-h") {
+    print("""
+    halo — active-window border for macOS.
+
+    USAGE
+      halo                  run as agent (config-driven; no runtime CLI)
+      halo --emit-schema    print the config.toml JSON Schema (Draft-07)
+      halo --help, -h       this help
+
+    EXIT CODES
+      0   success
+      2   unknown argument (loud on stderr)
+
+    CONFIG
+      ~/.config/halo/config.toml is the single source of truth, hot-reloaded
+      on save. halo has no control flags — every knob lives in the file.
+
+    DOCS
+      https://github.com/akira-toriyama/halo
+    """)
+    exit(0)
+}
+
 // `--emit-schema` is a one-shot: print the `config.toml` JSON Schema
 // (Draft-07) to stdout and exit. Generated from the same declarative
 // `configSpec` that decodes the config, so the two can't drift. The repo
 // regenerates `config.schema.json` with `halo --emit-schema > config.schema.json`.
-if CommandLine.arguments.dropFirst().contains("--emit-schema") {
+if cliArgs.contains("--emit-schema") {
     print(HaloConfig.jsonSchema, terminator: "")
     exit(0)
+}
+
+// Reject anything else loudly (no silent fallback). `--emit-schema` /
+// `--help` / `-h` exited above, so any remaining token is unrecognised.
+if let bad = cliArgs.first {
+    FileHandle.standardError.write(Data((
+        "halo: unknown argument \"\(bad)\" — halo is config-driven and has "
+        + "no control CLI. See `halo --help`.\n"
+    ).utf8))
+    exit(2)
 }
 
 // Refresh the taplo schema sidecar next to the user config so editor
