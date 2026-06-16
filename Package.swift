@@ -40,19 +40,27 @@ let package = Package(
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        // Floor 0.9.0 = the `ConfigSchema` module (one declarative `Spec`
-        // drives BOTH the config.toml decode AND the JSON Schema emitted for
-        // taplo completion — `halo --emit-schema`). 0.9.0 is an additive
-        // superset, so the existing Effects/Palette usage is unaffected.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.9.0")),
+        // Floor 0.11.0 = the release that removed sill's in-tree `Toml`
+        // (moved to the standalone swift-toml-edit repo, below). It also
+        // carries the `ConfigSchema` module (one declarative `Spec` drives
+        // BOTH the config.toml decode AND the JSON Schema emitted for taplo
+        // completion — `halo --emit-schema`), additive over the prior
+        // Effects/Palette usage.
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.11.0")),
+        // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
+        // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
+        // the module name is unchanged so `import Toml` survives. In its own
+        // repo since sill 0.11.0.
+        .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMinor(from: "1.0.0")),
     ],
     targets: [
         .executableTarget(
             name: "Halo",
             dependencies: [
                 .product(name: "Effects", package: "sill"),
-                // Toml: the family's pure config parser (`Toml.parseFlat`).
-                .product(name: "Toml", package: "sill"),
+                // Toml: the family's pure config parser (`Toml.parseFlat`),
+                // now sourced from the standalone swift-toml-edit package.
+                .product(name: "Toml", package: "swift-toml-edit"),
                 // ConfigSchema: one declarative `Spec` drives BOTH the
                 // config.toml decode and the JSON Schema emitted for taplo
                 // completion (`halo --emit-schema`) — so the two never drift.
