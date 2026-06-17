@@ -75,8 +75,6 @@ final class WindowServerEvents {
     /// Fired on the main thread for every subscribed event.
     var onEvent: ((UInt32) -> Void)?
 
-    var available: Bool { fnNewConn != nil && fnEventPort != nil && fnRegConn != nil }
-
     @discardableResult
     func start() -> Bool {
         guard let newConn = fnNewConn, let regConn = fnRegConn, fnEventPort != nil else {

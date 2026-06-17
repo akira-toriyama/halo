@@ -52,7 +52,6 @@ final class BorderFX {
         baseColor = bc
     }
 
-    var active: Bool { fx != nil }
     var glowEnabled: Bool { glowOn }
 
     /// The ring's color + width for wall-clock `now` — sampled ONCE per
