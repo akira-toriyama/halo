@@ -46,7 +46,7 @@ let package = Package(
         // BOTH the config.toml decode AND the JSON Schema emitted for taplo
         // completion — `halo --emit-schema`), additive over the prior
         // Effects/Palette usage.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.11.0")),
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "1.9.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
         // the module name is unchanged so `import Toml` survives. In its own
