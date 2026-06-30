@@ -107,7 +107,7 @@ halo touches no TCC-gated APIs, so — unlike facet — there's no
 self-signed-cert step and no dev/release bundle split: ad-hoc signing is
 enough. Commits follow the facet-family gitmoji + Conventional Commits
 convention (`git config core.hooksPath scripts/hooks`; see
-[docs/commit-convention.md](docs/commit-convention.md)).
+[CONTRIBUTING.md](https://github.com/akira-toriyama/.github/blob/main/CONTRIBUTING.md)).
 
 ## How it works
 
