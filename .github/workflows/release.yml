@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   release:
-    uses: akira-toriyama/.github/.github/workflows/release.yml@v1
+    uses: akira-toriyama/.github/.github/workflows/release.yml@v1.1.1
     with:
       app: Halo
       dry-run: ${{ github.event.inputs.dry_run == 'true' }}
