@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   release:
-    uses: akira-toriyama/glyph/.github/workflows/release.yml@v0.7.0
+    uses: akira-toriyama/glyph/.github/workflows/release.yml@v0.8.0
     with:
       app: Halo
       dry-run: ${{ github.event.inputs.dry_run == 'true' }}
