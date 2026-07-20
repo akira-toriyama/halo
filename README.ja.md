@@ -105,8 +105,8 @@ swift build -c release && .build/release/halo &   # bundle なしの生バイナ
 
 halo は TCC 権限を一切使わないので、facet と違って自己署名証明書の
 手順も dev/release のバンドル分割も無い —— ad-hoc 署名で十分。コミットは
-facet ファミリーの gitmoji + Conventional Commits 規約
-(`git config core.hooksPath scripts/hooks`; 詳細は
+facet ファミリーの gitmoji 駆動規約
+(ローカル hook は `glyph hook install`; 詳細は
 [CONTRIBUTING.md](https://github.com/akira-toriyama/.github/blob/main/CONTRIBUTING.md))。
 
 ## 仕組み

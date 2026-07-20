@@ -105,8 +105,8 @@ swift build -c release && .build/release/halo &   # raw binary, no bundle
 
 halo touches no TCC-gated APIs, so — unlike facet — there's no
 self-signed-cert step and no dev/release bundle split: ad-hoc signing is
-enough. Commits follow the facet-family gitmoji + Conventional Commits
-convention (`git config core.hooksPath scripts/hooks`; see
+enough. Commits follow the facet-family gitmoji-driven convention
+(`glyph hook install` for the local hook; see
 [CONTRIBUTING.md](https://github.com/akira-toriyama/.github/blob/main/CONTRIBUTING.md)).
 
 ## How it works
