@@ -59,8 +59,8 @@ apps = []
 # apps (Chrome, Calendar) won't move. Set shake = false to stay
 # permission-free.
 shake = true
-shake-amplitude = 10      # peak horizontal swing in points
-shake-duration-ms = 250   # total shake duration
+shake-amplitude = 10    # peak horizontal swing in points
+shake-duration-ms = 250 # total shake duration
 
 [sound]
 # Focus-sound: play a short audio cue when focus changes to another
@@ -69,8 +69,9 @@ shake-duration-ms = 250   # total shake duration
 # (aiff / wav / m4a / mp3 — anything NSSound reads) to enable it; leave
 # it empty and halo stays silent (halo ships no sound of its own).
 # Latest-wins — a fast alt-tab burst never stacks; only the newest plays.
-sound = ""                # audio file path; empty = off. e.g. "~/.local/share/sounds/window_focused.wav"
-sound-volume = 0.3        # 0.0 … 1.0
+#   sound = "~/.local/share/sounds/window_focused.wav"
+sound = ""         # audio file path; empty = off
+sound-volume = 0.3 # 0.0 … 1.0
 
 [pets]
 # Line-pets: small arcade sprites that ORBIT the focused window's ring,
@@ -79,7 +80,9 @@ sound-volume = 0.3        # 0.0 … 1.0
 # pet's silhouette is its own colour. Shared with facet & wand via sill.
 #   "chomp" — yellow chomping wedge
 #   "ghost" — red Blinky-style ghost (dome + eyes + skirt)
-line-pets = []            # e.g. ["chomp", "ghost"]; empty [] = off
-pet-scale = 1.5           # pet size multiplier (halo has no font-size to scale from)
-pet-lap-seconds = 8       # seconds for a pet to circle the window once — constant at
-                          # any window size (lower = faster chase, higher = lazier)
+# pet-scale: pet size multiplier (halo has no font-size to scale from).
+# pet-lap-seconds: seconds for a pet to circle the window once — constant
+# at any window size (lower = faster chase, higher = lazier).
+line-pets = []      # e.g. ["chomp", "ghost"]; empty [] = off
+pet-scale = 1.5
+pet-lap-seconds = 8
