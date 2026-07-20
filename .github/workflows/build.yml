@@ -34,7 +34,7 @@ jobs:
       # committed config.schema.json equals `configSpec.jsonSchema()`, so the
       # editor schema can never drift from the parser (CLT ships no XCTest,
       # so this only runs here in CI).
-      - uses: akira-toriyama/.github/actions/swift-build@main
+      - uses: akira-toriyama/.github/actions/swift-build@v2
 
       - name: Assemble & ad-hoc sign app bundle
         env:
