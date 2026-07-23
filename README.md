@@ -11,8 +11,6 @@ needs nothing from it. (facet stays a minimal window manager; halo is a
 separate, focused tool — see facet's "adjacent features live as sibling
 repos" decision.)
 
-[日本語 README](README.ja.md)
-
 ## Requirements
 
 - Apple Silicon, macOS 13+
