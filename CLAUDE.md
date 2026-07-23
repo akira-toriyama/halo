@@ -1,31 +1,47 @@
-# CLAUDE.md
+# CLAUDE.md — halo
 
 Guidance for working in this repository.
 
+## Docs
+
+English-only and code-first — follow the fleet
+[doc-consistency policy](https://github.com/akira-toriyama/.github/blob/main/docs/doc-consistency-policy.md)
+(no stored translations; truth lives in the code/CLI, docs point to it).
+
 ## CLI surface (config-driven — OUT of the domain-verb grammar)
 
-halo は **config-driven**。`~/.config/halo/config.toml`（保存で hot-reload）が
-唯一の制御面で、runtime の制御 CLI は持たない。atelier Phase 3（family CLI
-文法統一）でも halo は **OUT** ＝ yabai 式 domain-verb 文法の対象外（制御 CLI を
-発明するのは refactor ではなく feature）。正典は
-[cli-grammar.md](https://github.com/akira-toriyama/atelier/blob/main/docs/cli-grammar.md)。
+halo is **config-driven**: `~/.config/halo/config.toml` (hot-reloaded on save)
+is the only control surface — there is no runtime control CLI. Under atelier
+Phase 3 (unifying the family's CLI grammar) halo is deliberately **OUT** — not a
+target of the yabai-style domain-verb grammar, because inventing a control CLI
+would be a feature, not a refactor. The canonical grammar is
+[cli-grammar.md](https://github.com/akira-toriyama/atelier/blob/main/docs/cli-grammar.md).
 
-認識する flag は `--emit-schema`（config.toml の JSON Schema を stdout に）と
-family 共通 carve-out の `-h`/`--help` のみ。**それ以外の引数は loud に exit 2**
-（family 横断 sub-規約「no silent fallback」— 黙って起動しない）。引数なしの
-通常起動（`open Halo.app` / brew services / LaunchAgent）は argv が空なので
-この拒否に当たらない。実装は [Sources/Halo/main.swift](Sources/Halo/main.swift)。
+The only flags halo recognizes are `--emit-schema` (writes config.toml's JSON
+Schema to stdout) and the family-wide carve-out `-h` / `--help`. **Any other
+argument exits 2, loudly** (the family's "no silent fallback" sub-rule — never
+start up silently). A normal launch with no arguments (`open Halo.app` / brew
+services / a LaunchAgent) has an empty argv, so it never hits that rejection.
+The implementation is [Sources/Halo/main.swift](Sources/Halo/main.swift).
 
 ## Shared libraries (atelier)
 
-このアプリは swift app family の共有ライブラリに乗る（plan [atelier](https://github.com/akira-toriyama/atelier)）。
-共有 lib が持つ責務は**再実装せずライブラリ側を拡張**する（北極星＝「facet の theme を真似て」を二度と言わない）。
-モジュール → target の正確な配線は [Package.swift](Package.swift) を正とする。
+This app rides the swift app family's shared libraries (see the
+[atelier](https://github.com/akira-toriyama/atelier) plan). Where a shared
+library owns a responsibility, **extend the library rather than reimplementing
+it** (the north star: never say "copy facet's theme" again). The exact
+module → target wiring is authoritative in [Package.swift](Package.swift).
 
-- **[sill](https://github.com/akira-toriyama/sill)** — 共有 theming / CLI 基盤。設計 → [`docs/DESIGN.md`](https://github.com/akira-toriyama/sill/blob/main/docs/DESIGN.md)。halo が使う: `Effects`（border resolve・theme）/ `ConfigSchema`（`--emit-schema` の taplo schema）。
-- **[swift-toml-edit](https://github.com/akira-toriyama/swift-toml-edit)** — family 唯一の TOML 実装（`Toml` module・Swift 版 toml_edit）。halo は config.toml パースに使用。
+- **[sill](https://github.com/akira-toriyama/sill)** — the shared theming / CLI
+  foundation (design → [`docs/DESIGN.md`](https://github.com/akira-toriyama/sill/blob/main/docs/DESIGN.md)).
+  halo uses `Effects` (border resolve / theme) and `ConfigSchema` (the taplo
+  schema behind `--emit-schema`).
+- **[swift-toml-edit](https://github.com/akira-toriyama/swift-toml-edit)** — the
+  family's one TOML implementation (the `Toml` module, a Swift port of
+  toml_edit). halo uses it to parse config.toml.
 
 ## Roadmap board (GitHub Projects)
 
-issue 運用（集約 Project「roadmap」#5・Inbox 既定 / Status フロー / `Closes #N`）は
-family 共通ポリシー。正典 → https://github.com/akira-toriyama/atelier/blob/main/docs/roadmap-board.md
+Issue workflow — the aggregated Project "roadmap" #5, Inbox by default, the
+Status flow, `Closes #N` — is a family-wide policy. Canonical →
+https://github.com/akira-toriyama/atelier/blob/main/docs/roadmap-board.md
