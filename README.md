@@ -13,7 +13,7 @@ repos" decision.)
 
 ## Requirements
 
-- Apple Silicon, macOS 13+
+- Apple Silicon, macOS 26+
 - SIP can stay **on**. The ring itself is read-only (private SkyLight +
   a click-through overlay). The optional **focus-shake** moves the
   focused window via Accessibility — grant halo Accessibility for that,

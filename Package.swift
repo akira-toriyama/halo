@@ -21,7 +21,12 @@ import PackageDescription
 
 let package = Package(
     name: "halo",
-    platforms: [.macOS(.v13)],
+    // macOS-26 floor, inherited from sill. sill v2.0.0 raised its own floor to
+    // 26 for the SwiftUI migration, so any consumer that steps past sill 1.x
+    // adopts it too — this is that step (family policy t-tbar D2 / t-fs7p).
+    // Spelled as a string because `.v26` does not exist in this toolchain's
+    // PackageDescription.
+    platforms: [.macOS("26.0")],
     products: [
         .executable(name: "halo", targets: ["Halo"]),
     ],
@@ -40,18 +45,25 @@ let package = Package(
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        // Floor 0.11.0 = the release that removed sill's in-tree `Toml`
-        // (moved to the standalone swift-toml-edit repo, below). It also
-        // carries the `ConfigSchema` module (one declarative `Spec` drives
-        // BOTH the config.toml decode AND the JSON Schema emitted for taplo
-        // completion — `halo --emit-schema`), additive over the prior
-        // Effects/Palette usage.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "0.11.0")),
+        // Floor 5.0.0 — halo sat on 0.11.0 for six weeks and was the family's
+        // most-behind consumer by four majors. The jump crosses sill 1.x→5.x,
+        // but halo links only `Effects` (+ the `Palette` vocabulary it
+        // re-exports) and `ConfigSchema`, and NONE of sill's majors touched
+        // those: v2.0.0 raised the macOS floor (applied above), v3/v4 reshaped
+        // ThemeKitUI + typed the theme catalog, v5.0.0 made themed SwiftUI
+        // widgets ambient. Measured, not assumed — `swift build` is clean with
+        // zero source changes, and `halo --emit-schema` differs from the
+        // committed schema only by the ten themes sill added meanwhile.
+        // `ConfigSchema` still drives BOTH the config.toml decode AND the JSON
+        // Schema emitted for taplo completion (`halo --emit-schema`).
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "5.0.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
         // the module name is unchanged so `import Toml` survives. In its own
-        // repo since sill 0.11.0.
-        .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMinor(from: "1.0.0")),
+        // repo since sill 0.11.0. Floor 2.3.1 and `.upToNextMajor` to match the
+        // rest of the family (chord/facet/perch/wand all pin 2.x this way);
+        // halo and glance were the last two consumers left on 1.x.
+        .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMajor(from: "2.3.1")),
     ],
     targets: [
         .executableTarget(
