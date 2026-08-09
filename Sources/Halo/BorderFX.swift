@@ -22,7 +22,6 @@ import Effects
 import QuartzCore   // CACurrentMediaTime — the shared border + pets clock
 
 final class BorderFX {
-    // Config (from the border config).
     private var fx: EffectSpec?
     private var glowOn = false
     private var baseW: Double = 3
