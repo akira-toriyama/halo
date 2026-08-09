@@ -99,8 +99,6 @@ extension HaloConfig {
         )
     }
 
-    // MARK: - JSON Schema (taplo) — emitted from the SAME `configSpec`
-
     /// The `config.toml` JSON Schema (Draft-07). Drives `halo
     /// --emit-schema` and the sidecar install — generated from the one
     /// `configSpec`, so it can never drift from the decode.
@@ -135,8 +133,6 @@ extension HaloConfig {
     }
 }
 
-// MARK: - Field builders (keypath + Toml accessor → declarative field)
-
 private extension ConfigSchema.Field where Root == HaloConfig {
     /// Plain string passthrough.
     static func str(_ key: String, _ kp: WritableKeyPath<HaloConfig, String>,
@@ -146,7 +142,6 @@ private extension ConfigSchema.Field where Root == HaloConfig {
               apply: { c, v in if let s = v.asString { c[keyPath: kp] = s } },
               domain: domain, def: def.map { .string($0) }, doc: doc)
     }
-    /// Bool.
     static func bool(_ key: String, _ kp: WritableKeyPath<HaloConfig, Bool>,
                      default def: Bool? = nil, doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.boolean),

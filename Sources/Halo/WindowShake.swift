@@ -172,8 +172,6 @@ final class WindowShake {
         win = nil
     }
 
-    // MARK: - AX window resolution + position get/set
-
     /// The app's AX window matching the resolved CGWindowID, so the shake
     /// hits the SAME window the ring/flash chose — not whatever the app
     /// reports as `kAXFocusedWindow` (which can differ in multi-window
