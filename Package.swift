@@ -56,7 +56,7 @@ let package = Package(
         // committed schema only by the ten themes sill added meanwhile.
         // `ConfigSchema` still drives BOTH the config.toml decode AND the JSON
         // Schema emitted for taplo completion (`halo --emit-schema`).
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "5.0.0")),
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.0.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
         // the module name is unchanged so `import Toml` survives. In its own
