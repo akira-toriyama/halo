@@ -29,7 +29,8 @@ import CoreFoundation
 import Darwin
 import HaloCore
 
-private let slHandle =
+// nonisolated(unsafe): a raw handle resolved once at load, then read-only.
+nonisolated(unsafe) private let slHandle =
     dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW)
 
 private func slSym(_ name: String) -> UnsafeMutableRawPointer? {
@@ -52,12 +53,16 @@ private let fnNextEvent  = slSym("SLEventCreateNextEvent").map { unsafeBitCast($
 
 // @convention(c) callbacks can't capture context, so route through these
 // file-scope globals. halo has exactly one subscriber + one connection.
-private weak var liveSubscriber: WindowServerEvents?
-private var pumpCID: Int32 = 0
+// nonisolated(unsafe): written in `start()` and read by the callbacks,
+// all on the main run loop (the event port is a main-run-loop source), so
+// there is no second thread for the compiler to protect against.
+nonisolated(unsafe) private weak var liveSubscriber: WindowServerEvents?
+nonisolated(unsafe) private var pumpCID: Int32 = 0
 
 private func connectionNotify(_ event: UInt32, _ data: UnsafeMutableRawPointer?,
                               _ len: Int, _ ctx: UnsafeMutableRawPointer?, _ cid: Int32) {
-    liveSubscriber?.onEvent?(event)
+    // Dispatched from the drain pump, i.e. from the main run loop.
+    MainActor.assumeIsolated { liveSubscriber?.onEvent?(event) }
 }
 
 private let drainPump: CFMachPortCallBack = { _, _, _, _ in
@@ -65,6 +70,7 @@ private let drainPump: CFMachPortCallBack = { _, _, _, _ in
     while let ev = next(pumpCID) { ev.release() }   // draining fires the notify procs
 }
 
+@MainActor
 final class WindowServerEvents {
     static let MOVE:    UInt32 = 806
     static let RESIZE:  UInt32 = 807

@@ -32,9 +32,10 @@ private let axGetWindow: AXGetWindowFn? = {
 // lazy-AX apps won't surface a movable focused window → fire() no-ops
 // on them (a known, accepted limitation).
 //
-// Not @MainActor: halo is single-threaded on the main run loop. fire()
-// is called from BorderController on the main thread, and the timer
-// runs on the main run loop, so every AX call stays on main.
+// @MainActor: fire() comes from BorderController, the timer and the
+// gesture monitor run on the main run loop, so every AX call stays on
+// main — and the compiler now checks it.
+@MainActor
 final class WindowShake {
     /// Peak horizontal swing in points (config `shake-amplitude`).
     var amplitude: CGFloat = 10
@@ -89,9 +90,11 @@ final class WindowShake {
         pending = (pid, wid)
         armPoint = NSEvent.mouseLocation
         if gestureMonitor == nil {
+            // Global monitors are delivered on the main run loop; the SDK
+            // block carries no isolation, so assert it like the timers do.
             gestureMonitor = NSEvent.addGlobalMonitorForEvents(
                 matching: [.leftMouseDragged, .leftMouseUp]) { [weak self] e in
-                self?.onGesture(e)
+                MainActor.assumeIsolated { self?.onGesture(e) }
             }
         }
     }
@@ -136,7 +139,7 @@ final class WindowShake {
         origin = p0
         startUptime = ProcessInfo.processInfo.systemUptime
         let t = Timer(timeInterval: 1.0 / hz, repeats: true) { [weak self] _ in
-            self?.tick()
+            MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t

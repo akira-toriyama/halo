@@ -9,7 +9,9 @@
 // separate sibling repo, per facet's "adjacent features → sibling
 // repos" decision (2026-06-05): the border is facet-adjacent but not
 // core window management, so it lives on its own and keeps facet's core
-// minimal.
+// minimal. Swift 6 language mode (the tools-6.0 default, like the rest of
+// the family): everything app-side is @MainActor — halo IS single-threaded
+// on the main run loop, and the compiler now holds that line.
 //
 //   HaloCore   pure logic: config decode + schema (ConfigSchema), the
 //              focus resolve over window snapshots, overlay ↔ ring
@@ -23,12 +25,6 @@
 //              imports AppKit.
 //
 // Tests live under Tests/HaloCoreTests.
-//
-// The whole tool is single-threaded on the main run loop plus a handful
-// of private-SkyLight C callbacks, so the executable target uses Swift 5
-// language mode: strict concurrency would add ceremony here with no
-// safety gain (no cross-thread shared mutable state — the SkyLight
-// callbacks are serviced on the main run loop).
 
 import PackageDescription
 
@@ -81,15 +77,13 @@ let package = Package(
                 // config.toml decode and the JSON Schema emitted for taplo
                 // completion (`halo --emit-schema`) — so the two never drift.
                 .product(name: "ConfigSchema", package: "sill"),
-            ],
-            swiftSettings: [.swiftLanguageMode(.v5)]),
+            ]),
         .executableTarget(
             name: "Halo",
             dependencies: [
                 "HaloCore",
                 .product(name: "Effects", package: "sill"),
-            ],
-            swiftSettings: [.swiftLanguageMode(.v5)]),
+            ]),
         // Pure-logic tests, plus the drift guard: the committed
         // config.schema.json must equal the live `configSpec.jsonSchema()`.
         // CLT ships no XCTest, so these run in CI (the shared swift-build
@@ -100,7 +94,6 @@ let package = Package(
                 "HaloCore",
                 .product(name: "Palette", package: "sill"),
                 .product(name: "ConfigSchema", package: "sill"),
-            ],
-            swiftSettings: [.swiftLanguageMode(.v5)]),
+            ]),
     ]
 )

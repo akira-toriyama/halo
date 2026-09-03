@@ -18,7 +18,12 @@ import HaloCore
 // BorderController is the ONE owner of the config: it loads it, hot-reloads
 // it off its own 0.4s safety-net poll, and hands every tunable to fx /
 // shake / ring / sound through `applyConfig`.
+//
+// @MainActor: every entry point (events, timers, the settle re-resolves)
+// arrives on the main run loop; the timer / dispatch closures re-enter via
+// `MainActor.assumeIsolated`, the family's pattern (facet's BorderFX).
 
+@MainActor
 final class BorderController {
     private var cfg: HaloConfig
     private let events: WindowServerEvents
@@ -67,7 +72,7 @@ final class BorderController {
     func start() {
         poll()
         let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
-            self?.poll()
+            MainActor.assumeIsolated { self?.poll() }
         }
         RunLoop.main.add(timer, forMode: .common)
         safetyNet = timer
@@ -105,10 +110,12 @@ final class BorderController {
         // 30 Hz, .common so it keeps ticking during interaction. Self-stops in
         // the tick once nothing animates (the flash burst settles by wall-clock).
         let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.ring.needsDisplay = true
-            if !(self.fx.animating(at: CACurrentMediaTime()) || !self.cfg.linePets.isEmpty) {
-                self.stopRedraw()
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.ring.needsDisplay = true
+                if !(self.fx.animating(at: CACurrentMediaTime()) || !self.cfg.linePets.isEmpty) {
+                    self.stopRedraw()
+                }
             }
         }
         RunLoop.main.add(t, forMode: .common)
@@ -153,7 +160,9 @@ final class BorderController {
         if event == WindowServerEvents.FRONT || event == WindowServerEvents.REORDER {
             for ms in [16, 40, 80] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(ms) / 1000) { [weak self] in
-                    self?.update(trigger: "event-\(event)+\(ms)ms", resubscribe: false)
+                    MainActor.assumeIsolated {
+                        self?.update(trigger: "event-\(event)+\(ms)ms", resubscribe: false)
+                    }
                 }
             }
         }

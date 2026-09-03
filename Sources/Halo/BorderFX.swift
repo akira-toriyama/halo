@@ -14,14 +14,15 @@
 // configurable `baseColor` "off" fallback (halo has no panel palette, so it
 // can't fall back to facet's per-surface `pal.primary`).
 //
-// Not @MainActor (unlike facet's): halo is single-threaded on the main run
-// loop, so the isolation would just propagate friction with no safety gain.
+// @MainActor, like facet's: the second consumer of `resolveBorder` sits on
+// the same isolation as the first.
 
 import AppKit
 import Effects
 import HaloCore
 import QuartzCore   // CACurrentMediaTime — the shared border + pets clock
 
+@MainActor
 final class BorderFX {
     private var fx: EffectSpec?
     private var glowOn = false
