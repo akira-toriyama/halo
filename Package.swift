@@ -58,17 +58,23 @@ let package = Package(
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
         // `.upToNextMinor` off the current major, the same pin shape as the
-        // rest of the family; dependabot proposes the bumps. `ConfigSchema`
-        // drives BOTH the config.toml decode AND the JSON Schema emitted for
-        // taplo completion (`halo --emit-schema`).
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.0.0")),
+        // rest of the family. `ConfigSchema` drives BOTH the config.toml
+        // decode AND the JSON Schema emitted for taplo completion
+        // (`halo --emit-schema`); sill's ThemeKitUI churn reaches none of the
+        // products halo links.
+        //
+        // COUPLED with swift-toml-edit below: sill >= 8.1.0 requires
+        // swift-toml-edit 3.x, sill <= 8.0.x requires 2.x — bumping either
+        // alone fails to resolve, so they move together in one commit.
+        // Dependabot ignores akira-toriyama/*, so nothing else warns.
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.8.4")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
-        // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
-        // the module name is unchanged so `import Toml` survives. In its own
-        // repo since sill 0.11.0. Floor 2.3.1 and `.upToNextMajor` to match the
-        // rest of the family (chord/facet/perch/wand all pin 2.x this way);
-        // halo and glance were the last two consumers left on 1.x.
-        .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMajor(from: "2.3.1")),
+        // Provides the `Toml` module halo reads config with (`Toml.parseFlat`,
+        // the sole call site); the module name is unchanged so `import Toml`
+        // survives. v3.0.0 made `Toml.parse` delegate to the strict tiler;
+        // `parseFlat` stays the lenient line scanner BY DESIGN, so the major
+        // is a no-op here.
+        .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMajor(from: "3.0.0")),
     ],
     targets: [
         .target(
