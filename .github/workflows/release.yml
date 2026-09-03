@@ -55,6 +55,8 @@ jobs:
         open /Applications/Halo.app
         ```
 
-        halo needs **no permissions** — no Accessibility, no Screen
-        Recording (it only reads window geometry via read-only private
-        SkyLight and draws a click-through overlay). Just launch it.
+        The ring needs **no permissions** (read-only private SkyLight +
+        a click-through overlay). The **focus-shake** (on by default) moves
+        the focused window, which needs **Accessibility** — grant halo in
+        System Settings → Privacy & Security → Accessibility, or set
+        `shake = false` in config.toml to keep halo permission-free.

@@ -15,6 +15,3 @@
 
 # Code signing (written by ./setup-signing-cert.sh)
 .signing-id
-
-# Logs (local dev)
-/tmp/

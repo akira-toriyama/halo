@@ -5,9 +5,11 @@ import Toml
 
 // halo configuration. Mirrors facet's `[border]` config surface (same
 // keys / semantics) so the two feel the same: an `effect` palette layered
-// on a base color, with glow / width / cycle / breath. Read once at launch
-// from ~/.config/halo/config.toml; unknown / malformed keys keep their
-// default (facet's clamp-to-default — a typo can never break the ring).
+// on a base color, with glow / width / cycle / breath. Read from
+// ~/.config/halo/config.toml at launch and hot-reloaded on every mtime
+// change (`BorderController.reloadIfConfigChanged`, off the 0.4s
+// safety-net poll); unknown / malformed keys keep their default (facet's
+// clamp-to-default — a typo can never break the ring).
 //
 // Decode is driven by ONE declarative `configSpec` (see
 // `HaloConfig+Spec.swift`), which ALSO emits the `config.toml` JSON Schema
