@@ -40,6 +40,19 @@ final class ConfigValidateTests: XCTestCase {
         XCTAssertEqual(HaloConfig.warnSchemaViolations(broken), 0)
     }
 
+    /// The classic typo — an unquoted string — makes the strict parser
+    /// refuse the whole file. The load path must still report the OTHER
+    /// keys' violations (over what the lenient scanner read), not go quiet.
+    func testStrictRejectionStillValidatesWhatTheScannerRead() {
+        let typo = "[border]\neffect = rainbow\nwidth = -5\n[sound]\nsound-volume = 7\n"
+        XCTAssertThrowsError(try HaloConfig.validate(typo))
+        XCTAssertEqual(HaloConfig.warnSchemaViolations(typo), 2)   // border.width + sound.sound-volume
+        let c = HaloConfig.parse(typo)
+        XCTAssertEqual(c.effect, "neon")     // the bad line is dropped, default kept
+        XCTAssertEqual(c.width, 0)           // clamped
+        XCTAssertEqual(c.soundVolume, 1)
+    }
+
     func testWarnCountsEveryViolation() {
         XCTAssertEqual(HaloConfig.warnSchemaViolations("[sound]\nsound-volume = 7\n[pets]\npet-scale = \"big\"\n"), 2)
     }

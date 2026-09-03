@@ -317,7 +317,9 @@ reload, so every tunable lands the same way.
 **the spec** — `configSpec`, one declarative `ConfigSchema.Spec<HaloConfig>` that
 drives the decode, the emitted JSON Schema AND the load-time validate. The point
 is that a key cannot exist in the parser but be missing from the schema, or vice
-versa, and that what taplo flags in the editor is what the log reports. Its
+versa, and that what taplo flags inside a `[section]` is what the log reports
+(an unknown top-level section is flagged by the editor only — the validator
+walks known sections). Its
 enum domains come from sill's `canonicalEffectNames` / `canonicalLinePetNames`
 rather than being restated. `Sources/HaloCore/HaloConfig+Spec.swift`, *configSpec*.
 
@@ -331,9 +333,10 @@ so refreshing it cannot cause reload churn.
 its default rather than failing, and an out-of-range number is clamped to the
 schema's own `min` / `max` (every bound the editor sees is a bound the decode
 enforces). A typo can never break the ring — but it is never silent either: on
-every load the strict *validate* runs first and each violation lands as one
-`config: …` line in /tmp/halo.log, and each clamp logs what it wrote and the
-accepted range. Note this is the OPPOSITE of the argv policy below, and
+every load *validate* runs first (over the strict parse, or over what the
+lenient scanner salvaged when the strict parser refuses the file — that
+refusal is logged too) and each violation lands as one `config: …` line in
+/tmp/halo.log, and each clamp logs what it wrote and the accepted range. Note this is the OPPOSITE of the argv policy below, and
 deliberately so — a config is edited live by a human, argv is not.
 `Sources/HaloCore/HaloConfig.swift`, *load()* / *warnSchemaViolations(_:)*.
 
