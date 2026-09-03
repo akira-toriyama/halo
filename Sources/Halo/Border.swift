@@ -1,6 +1,7 @@
 import AppKit
 import QuartzCore   // CACurrentMediaTime — line-pet animation clock
-import Effects      // sill: drawLinePets / LinePet
+import Effects      // sill: drawLinePets / LinePet / NSColor(HexColor)
+import HaloCore
 
 // The ring overlay + its driver.
 //
@@ -11,16 +12,17 @@ import Effects      // sill: drawLinePets / LinePet
 // (smooth follow during a drag), each FRONT/REORDER re-resolves the focused
 // window. The ring's look (color / width / glow / cycle / flash) is owned
 // by BorderFX — halo's local animator over sill's shared effect catalog
-// (`Effects.EffectSpec`).
+// (`Effects.EffectSpec`). The overlay ↔ ring arithmetic is
+// `HaloCore.RingGeometry`; the pick itself is `HaloCore.FocusResolver`.
 //
-// Margin: the overlay frame is the window rect expanded by `glowPad` so the
-// glow can bloom OUTWARD past the window edge (the ring itself sits `pad`
-// outside the window edge).
-private let glowPad: CGFloat = 24
+// BorderController is the ONE owner of the config: it loads it, hot-reloads
+// it off its own 0.4s safety-net poll, and hands every tunable to fx /
+// shake / ring / sound through `applyConfig`.
 
 final class BorderController {
     private var cfg: HaloConfig
     private let events: WindowServerEvents
+    private var safetyNet: Timer?
     private let overlay = NSWindow(contentRect: .zero, styleMask: [.borderless],
                                    backing: .buffered, defer: true)
     private let fx = BorderFX()
@@ -37,7 +39,11 @@ final class BorderController {
     /// not an animator (the math is sill's clockless `resolveBorder`).
     private var redrawTimer: Timer?
 
-    init(config: HaloConfig, events: WindowServerEvents) {
+    /// The config as last applied (launch or hot-reload).
+    var config: HaloConfig { cfg }
+
+    init(events: WindowServerEvents) {
+        let config = HaloConfig.load()
         self.cfg = config
         self.events = events
         self.ring = RingView(config: config, fx: fx)
@@ -53,6 +59,20 @@ final class BorderController {
         lastConfigMtime = Self.configMtime()
     }
 
+    /// First resolve + the safety net (yabai-style): periodically
+    /// re-subscribe the on-screen set + re-hug, so windows opened after
+    /// launch start emitting MOVE/RESIZE and a missed event can't leave the
+    /// ring stale. The live, smooth tracking still comes from the ~5ms
+    /// events. The same tick carries the config mtime check (hot-reload).
+    func start() {
+        poll()
+        let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
+            self?.poll()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        safetyNet = timer
+    }
+
     /// (Re)apply a config to fx / shake / ring. One path for both launch
     /// and hot-reload, so every tunable lands the same way.
     private func applyConfig(_ c: HaloConfig) {
@@ -62,7 +82,7 @@ final class BorderController {
         shake.durationMs = c.shakeDurationMs
         fx.configure(effectName: c.effect, glow: c.glow, width: c.width,
                      cycleSeconds: c.cycleSeconds, cycleColors: c.cycleColors,
-                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: c.color)
+                     minWidth: c.minWidth, maxWidth: c.maxWidth, baseColor: NSColor(c.color))
         focusSound.configure(path: c.sound, volume: c.soundVolume)
         ring.needsDisplay = true
         syncRedraw()
@@ -152,13 +172,15 @@ final class BorderController {
         if trigger == "poll" { Log.debug(String(format: "resolve %.2fms (%d windows)", resolveMs, info.count)) }
 
         if resubscribe {
-            events.requestWindows(info.compactMap { $0[kCGWindowNumber as String] as? UInt32 })
+            events.requestWindows(info.map(\.id))
         }
-        guard let (wid, pid, cg) = focused(in: info) else { overlay.orderOut(nil); lastWID = 0; return }
+        guard let front = FocusResolver.focused(in: info, selfPID: selfPID, minSize: cfg.minSize,
+                                                isExcluded: isExcluded)
+        else { overlay.orderOut(nil); lastWID = 0; return }
+        let (wid, pid) = (front.id, front.ownerPID)
         let screenH = NSScreen.screens.first?.frame.height ?? 0      // CG (y-down) → Cocoa (y-up)
-        let cocoa = CGRect(x: cg.origin.x, y: screenH - cg.origin.y - cg.height,
-                           width: cg.width, height: cg.height)
-        overlay.setFrame(cocoa.insetBy(dx: -glowPad, dy: -glowPad), display: true)
+        overlay.setFrame(RingGeometry.overlayFrame(hugging: front.bounds, screenHeight: screenH),
+                         display: true)
         if !overlay.isVisible { overlay.orderFrontRegardless() }
         ring.needsDisplay = true
         if wid != lastWID {
@@ -177,27 +199,30 @@ final class BorderController {
         didFirstResolve = true
     }
 
-    /// Frontmost layer-0 window not owned by us / not excluded, from a snapshot.
-    /// Returns its CGWindowID, owning pid, and CG bounds.
-    private func focused(in info: [[String: Any]]) -> (UInt32, Int32, CGRect)? {
-        for d in info {
-            guard let pid = d[kCGWindowOwnerPID as String] as? Int32, pid != selfPID,
-                  let wid = d[kCGWindowNumber as String] as? UInt32,
-                  !cfg.isExcluded(pid: pid),
-                  let b = d[kCGWindowBounds as String] as? [String: CGFloat],
-                  let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"],
-                  w >= cfg.minSize, h >= cfg.minSize
-            else { continue }
-            return (wid, pid, CGRect(x: x, y: y, width: w, height: h))
-        }
-        return nil
+    /// `[exclude].apps` check for a candidate's pid. Resolves the bundle
+    /// id lazily — only when an exclusion is configured — so the common
+    /// empty case never touches NSRunningApplication.
+    private func isExcluded(pid: Int32) -> Bool {
+        guard !cfg.excludedApps.isEmpty else { return false }
+        let bid = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? ""
+        return cfg.isExcluded(bundleID: bid)
     }
 
-    /// On-screen, layer-0 (normal) windows, front-to-back.
-    private func windowInfo() -> [[String: Any]] {
+    /// On-screen, layer-0 (normal) windows, front-to-back, as the pure
+    /// snapshot `FocusResolver` reads. Rows missing an id / pid / bounds
+    /// are dropped here (they can't be hugged anyway).
+    private func windowInfo() -> [WindowSnapshot] {
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let raw = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
-        return raw.filter { ($0[kCGWindowLayer as String] as? Int ?? 0) == 0 }
+        return raw.compactMap { d in
+            guard (d[kCGWindowLayer as String] as? Int ?? 0) == 0,
+                  let pid = d[kCGWindowOwnerPID as String] as? Int32,
+                  let wid = d[kCGWindowNumber as String] as? UInt32,
+                  let b = d[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"]
+            else { return nil }
+            return WindowSnapshot(id: wid, ownerPID: pid, bounds: CGRect(x: x, y: y, width: w, height: h))
+        }
     }
 }
 
@@ -212,9 +237,7 @@ final class RingView: NSView {
     override var isFlipped: Bool { false }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Ring sits `pad` outside the window edge; the window edge is
-        // `glowPad` inside the overlay bounds.
-        let rect = bounds.insetBy(dx: glowPad - cfg.pad, dy: glowPad - cfg.pad)
+        let rect = RingGeometry.ringRect(in: bounds, pad: cfg.pad)
         guard rect.width > 0, rect.height > 0 else { return }
         let path = NSBezierPath(roundedRect: rect, xRadius: cfg.cornerRadius, yRadius: cfg.cornerRadius)
         // ONE wall-clock sample for the whole frame: the border color/width and
@@ -241,13 +264,8 @@ final class RingView: NSView {
         // shared sill drawing; halo owns only the rect + the redraw cadence
         // (BorderFX keeps its timer alive while pets are configured).
         if !cfg.linePets.isEmpty {
-            // Derive pt/s from a desired lap time so the orbit feels equally
-            // lively at any window size — a constant pt/s would crawl on a big
-            // window and sprint on a small one.
-            let perim = 2 * (rect.width + rect.height)
-            let speed = perim / max(0.5, cfg.petLapSeconds)
-            drawLinePets(cfg.linePets, on: rect, now: now,
-                         scale: cfg.petScale, speed: speed)
+            drawLinePets(cfg.linePets, on: rect, now: now, scale: cfg.petScale,
+                         speed: PetOrbit.speed(around: rect, lapSeconds: cfg.petLapSeconds))
         }
     }
 }

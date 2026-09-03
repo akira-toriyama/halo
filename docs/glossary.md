@@ -2,7 +2,8 @@
 
 The vocabulary halo's code, its doc comments and its task bodies use as terms of
 art. It exists to stop the reader and Claude Code from meaning two different
-things by one word. halo is small (nine files, ~1,200 lines) but almost every
+things by one word. halo is small (13 files, ~1,400 lines across two modules,
+`HaloCore` and `Halo`) but almost every
 word in it names a distinction that is expensive to collapse — *ring* vs
 *overlay*, *pad* vs *glowPad*, *event* vs *poll*, *flash* vs *shake* vs *sound*,
 *read-only* vs *moves the window* — and in each entry below the **distinction is
@@ -29,12 +30,12 @@ missing entry, because it is the one place a reader trusts not to be stale.
 
 1. [The ring](#1-the-ring) — ring, overlay, hug, pad, glowPad, click-through, agent, desktop-local
 2. [The event seam](#2-the-event-seam) — seam, dedicated connection, notify proc, drain pump, event port, per-window subscription, event code, safety-net poll, settle re-resolve
-3. [Resolving focus](#3-resolving-focus) — resolve, layer-0, front-to-back, exclusion, min-size, first resolve
+3. [Resolving focus](#3-resolving-focus) — resolve, snapshot, layer-0, front-to-back, exclusion, min-size, first resolve
 4. [Focus feedback](#4-focus-feedback) — the three modalities, flash, focus-shake, focus-sound, latest-wins
 5. [The shake in detail](#5-the-shake-in-detail) — read-only vs moves, AX trust, deferred shake, drag threshold, envelope, position-only, lazy-AX
 6. [One clock](#6-one-clock) — the one clock, redraw heartbeat, clockless math, sample, animating, breathe, cycle, line-pets
 7. [Config](#7-config) — config-driven, hot-reload, the spec, schema sidecar, clamp-to-default, glob, no silent fallback
-8. [Boundaries](#8-boundaries) — satellite, what sill owns, what halo owns, mirror
+8. [Boundaries](#8-boundaries) — satellite, what sill owns, what halo owns, Core vs App, mirror
 
 ---
 
@@ -56,8 +57,9 @@ during a drag rather than jumping after it. `Sources/Halo/Border.swift`,
 which the *overlay* is expanded beyond the window rect, so the glow can bloom
 OUTWARD past the window edge instead of being clipped. `pad` is a look;
 `glowPad` is headroom the user never sees and cannot set. The ring's rect is
-therefore the overlay bounds inset by `glowPad - pad`.
-`Sources/Halo/Border.swift`, *glowPad*.
+therefore the overlay bounds inset by `glowPad - pad`. Both rectangles are pure
+arithmetic, and the capsule acceptance driver gates on the overlay being the
+window + 2·`glowPad`. `Sources/HaloCore/RingGeometry.swift`, *RingGeometry*.
 
 **click-through** — the overlay sets `ignoresMouseEvents`, so the ring is never a
 target: clicks land on the window underneath. Together with never becoming key,
@@ -66,7 +68,7 @@ this is why the ring needs no permission at all.
 
 **agent** — halo runs as an `LSUIElement` / `.accessory` app: no Dock icon, never
 steals focus. Load-bearing for a focus-tracking tool — an app that took focus
-would change the thing it is measuring. `Sources/Halo/main.swift`,
+would change the thing it is measuring. `Sources/Halo/HaloApp.swift`,
 *setActivationPolicy(.accessory)*.
 
 **desktop-local** — the overlay's `collectionBehavior` (`.stationary`,
@@ -121,8 +123,9 @@ is deliberately excluded from logging — it fires continuously during a drag.
 **safety-net poll** — the 0.4s timer that re-subscribes the on-screen set and
 re-hugs regardless of events. Not the tracking mechanism (the seam is); it is the
 backstop, so a window opened after launch starts emitting and a missed event
-cannot leave the ring stale. It also carries the config mtime check.
-`Sources/Halo/main.swift`, *safetyNet*.
+cannot leave the ring stale. It also carries the config mtime check. Owned by
+the controller, like the config it re-reads. `Sources/Halo/Border.swift`,
+*BorderController.start()*.
 
 **settle re-resolve** — the 16 / 40 / 80ms re-checks fired after FRONT or
 REORDER. Both codes arrive BEFORE the window server's z-order settles, so an
@@ -138,7 +141,15 @@ visibly late. (JankyBorders defers ~50ms for the same reason.)
 **resolve** — to pick, from one window-server snapshot, which window the ring
 should be on: the frontmost window that is not halo's own, not excluded, and not
 tiny. Note what it is NOT — halo never asks the system "what is focused"; it
-reads z-order. `Sources/Halo/Border.swift`, *focused(in:)*.
+reads z-order. Pure: it consumes *snapshots* and asks the app only "is this pid
+excluded?". `Sources/HaloCore/FocusResolver.swift`,
+*FocusResolver.focused(in:selfPID:minSize:isExcluded:)*.
+
+**snapshot** — a `WindowSnapshot`: one on-screen window reduced to its id, its
+owning pid and its CG bounds, in the order the window server listed it. The seam
+between the window-list read (app) and the resolve (core): the resolve never
+sees a `CGWindowList` dictionary. `Sources/HaloCore/FocusResolver.swift`,
+*WindowSnapshot*.
 
 **layer-0** — the `kCGWindowLayer == 0` filter: normal application windows. It
 excludes the desktop, the menu bar, and floating panels — including halo's own
@@ -150,13 +161,14 @@ ordering IS the focus signal; nothing sorts it afterwards.
 `Sources/Halo/Border.swift`, *windowInfo()*.
 
 **exclusion** — an `[exclude].apps` bundle-id glob that suppresses the ring for
-matching apps. Resolved lazily — the bundle id is only looked up when an
-exclusion is actually configured, so the common empty case costs nothing.
-`Sources/Halo/Config.swift`, *isExcluded(pid:)*.
+matching apps. The glob test is pure (`HaloConfig.isExcluded(bundleID:)`); the
+pid → bundle-id lookup is the app's, and lazy — only done when an exclusion is
+actually configured, so the common empty case costs nothing.
+`Sources/Halo/Border.swift`, *BorderController.isExcluded(pid:)*.
 
 **min-size** — the `minSize` floor (default 80pt) that drops tiny popups from the
 resolve, so a completion popup or a tooltip does not steal the ring.
-`Sources/Halo/Config.swift`, *minSize*.
+`Sources/HaloCore/HaloConfig.swift`, *minSize*.
 
 **first resolve** — the launch-time resolve, tracked by `didFirstResolve`. The
 shake and the sound are gated on it, because at launch the user did not change
@@ -227,7 +239,7 @@ it was a click (shake now). `Sources/Halo/WindowShake.swift`, *dragThreshold*.
 tapers the swing, and it guarantees `x(1) == origin.x`, so the final write lands
 on the EXACT origin. That exactness is why the shake never disturbs neighbours,
 and why a co-running facet just sees the window return to its base frame.
-`Sources/Halo/WindowShake.swift`, *tick()*.
+`Sources/HaloCore/ShakeCurve.swift`, *ShakeCurve.offset(progress:amplitude:)*.
 
 **position-only** — the shake never touches `y` and never touches size. A
 left-right nudge, nothing else. `Sources/Halo/WindowShake.swift`, *header*.
@@ -281,7 +293,8 @@ but they are different animations. `Sources/Halo/BorderFX.swift`, *breathing*.
 chasing each other. Opt-in, permission-free, theme-agnostic. halo owns only the
 rect and the redraw cadence; the drawing is sill's `drawLinePets`. Their speed is
 derived from a desired LAP TIME rather than a constant pt/s, so the orbit feels
-equally lively on a large and a small window. `Sources/Halo/Border.swift`,
+equally lively on a large and a small window (`Sources/HaloCore/PetOrbit.swift`,
+*PetOrbit.speed(around:lapSeconds:)*). `Sources/Halo/Border.swift`,
 *RingView.draw(_:)*.
 
 ---
@@ -292,7 +305,7 @@ equally lively on a large and a small window. `Sources/Halo/Border.swift`,
 the *entire* control plane, and there is no runtime control CLI. Under atelier
 Phase 3 (unifying the family's CLI grammar) halo is deliberately OUT of the
 domain-verb grammar, because inventing a control CLI would be a feature, not a
-refactor. `Sources/Halo/main.swift`, *header*.
+refactor. `Sources/Halo/HaloApp.swift`, *header*.
 
 **hot-reload** — re-reading and re-applying the config when its mtime changes,
 within ~0.4s, no restart. Triggered off the existing safety-net poll rather than
@@ -305,29 +318,29 @@ reload, so every tunable lands the same way.
 drives BOTH the decode and the emitted JSON Schema. The point is that a key
 cannot exist in the parser but be missing from the schema, or vice versa. Its
 enum domains come from sill's `canonicalEffectNames` / `canonicalLinePetNames`
-rather than being restated. `Sources/Halo/HaloConfig+Spec.swift`, *configSpec*.
+rather than being restated. `Sources/HaloCore/HaloConfig+Spec.swift`, *configSpec*.
 
 **schema sidecar** — `config.schema.json`, written next to the user's config on
 launch so editor completion and validation just work. Idempotent, writes only on
 change, and the hot-reload watcher polls `config.toml` rather than this sibling —
-so refreshing it cannot cause reload churn. `Sources/Halo/main.swift`,
-*installSchema()*.
+so refreshing it cannot cause reload churn.
+`Sources/HaloCore/HaloConfig+Spec.swift`, *installSchema()*.
 
 **clamp-to-default** — the config error policy: an unknown or malformed key keeps
 its default rather than failing. A typo can never break the ring. Note this is
 the OPPOSITE of the argv policy below, and deliberately so — a config is edited
-live by a human, argv is not. `Sources/Halo/Config.swift`, *header*.
+live by a human, argv is not. `Sources/HaloCore/HaloConfig.swift`, *header*.
 
 **glob** — the anchored, case-insensitive `*` / `?` match used by
 `[exclude].apps`. The same grammar wand's exclusion list documents, so one
-exclusion list reads the same family-wide. `Sources/Halo/Config.swift`,
+exclusion list reads the same family-wide. `Sources/HaloCore/HaloConfig.swift`,
 *globMatch(_:_:)*.
 
 **no silent fallback** — the argv policy: any argument other than
 `--emit-schema` / `--help` / `-h` exits **2**, loudly, on stderr. halo must never
 start up silently having ignored what it was told. A normal agent launch (`open
 Halo.app`, brew services, a LaunchAgent) passes empty argv, so this never blocks
-startup. `Sources/Halo/main.swift`, *cliArgs*.
+startup. `Sources/Halo/HaloApp.swift`, *HaloApp.main()*.
 
 ---
 
@@ -349,7 +362,16 @@ theme* again". `CLAUDE.md`, *Shared libraries*.
 resolve, the three feedback modalities, the redraw cadence, and the config
 surface. Everything here is app-side by necessity, not by preference.
 
+**Core vs App** — the two modules. `HaloCore` is pure: the config decode and
+schema, the resolve over snapshots, the overlay ↔ ring geometry, the shake
+curve, the pet orbit speed, and `Log` — nothing that imports AppKit, SkyLight
+or AX, so all of it runs under `Tests/HaloCoreTests` with no window server.
+`Halo` is the executable: the event seam, the overlay window, `BorderFX`'s
+`NSColor` materialization, the AX shake, the sound. The test is the placement
+rule: pure math or pure data goes in Core even when its only caller is the app.
+`Package.swift`, *header*.
+
 **mirror** — halo's `[border]` config keys deliberately reproduce facet's, key
 for key and semantic for semantic, so the two feel the same to a user who runs
 both. When adding a border knob, the question is what facet calls it, not what
-reads best in isolation. `Sources/Halo/Config.swift`, *header*.
+reads best in isolation. `Sources/HaloCore/HaloConfig.swift`, *header*.

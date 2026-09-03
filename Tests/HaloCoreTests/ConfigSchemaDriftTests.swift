@@ -1,5 +1,5 @@
 import XCTest
-@testable import Halo
+@testable import HaloCore
 
 /// The committed `config.schema.json` (shipped next to `config.toml`,
 /// pointed at by its `#:schema` directive) MUST equal what the live spec
@@ -11,7 +11,7 @@ final class ConfigSchemaDriftTests: XCTestCase {
         // Locate the repo-root schema relative to THIS source file, so the
         // check is independent of the test runner's working directory.
         let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // Tests/HaloTests
+            .deletingLastPathComponent()   // Tests/HaloCoreTests
             .deletingLastPathComponent()   // Tests
             .deletingLastPathComponent()   // <repo root>
         let url = repoRoot.appendingPathComponent("config.schema.json")

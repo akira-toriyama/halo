@@ -27,6 +27,7 @@
 import AppKit
 import CoreFoundation
 import Darwin
+import HaloCore
 
 private let slHandle =
     dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW)
