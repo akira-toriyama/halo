@@ -69,12 +69,37 @@ public struct HaloConfig: Sendable {
     }
 
     /// Read + decode `~/.config/halo/config.toml`. Missing / unreadable →
-    /// all defaults. Read-only by design: halo never writes the user's
-    /// config (only the schema sidecar, via `installSchema`).
+    /// all defaults. Every schema violation is logged first
+    /// (`warnSchemaViolations`) so a hot-reload that "did nothing" says
+    /// why in /tmp/halo.log; the lenient decode then runs regardless.
+    /// Read-only by design: halo never writes the user's config (only the
+    /// schema sidecar, via `installSchema`).
     public static func load() -> HaloConfig {
         guard let text = try? String(contentsOfFile: configFilePath, encoding: .utf8)
         else { return HaloConfig() }
+        warnSchemaViolations(text)
         return parse(text)
+    }
+
+    /// Structural validation against the SAME `configSpec` that drives the
+    /// decode and `--emit-schema` (sill's `Spec.validate`): the STRICT
+    /// counterpart to the lenient `parse`, surfacing the type / enum /
+    /// range / unknown-key mismatches the decode clamps or drops. Returns
+    /// every violation (empty = valid); throws only when `text` is not
+    /// parseable TOML at all.
+    public static func validate(_ text: String) throws -> [ValidationError] {
+        configSpec.validate(try Toml.parse(text))
+    }
+
+    /// Load-path validate (the family shape — facet / wand / perch): each
+    /// violation becomes one `config: …` line via `Log.line`; nothing is
+    /// rejected. A non-parseable source yields zero warnings (the lenient
+    /// decode still continues). Returns the violation count.
+    @discardableResult
+    public static func warnSchemaViolations(_ text: String) -> Int {
+        let errors = (try? validate(text)) ?? []
+        for e in errors { Log.line("config: \(e.message)") }
+        return errors.count
     }
 
     /// Decode config.toml SOURCE. The uniform `[block]` keys are driven by

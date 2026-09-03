@@ -35,6 +35,26 @@ final class ConfigDecodeTests: XCTestCase {
         XCTAssertEqual(HaloConfig.parse("[sound]\nsound-volume = -1\n").soundVolume, 0)
     }
 
+    func testSchemaMinIsARuntimeClampForEveryNumberField() {
+        let c = HaloConfig.parse("""
+            [border]
+            width = -5
+            corner-radius = -1
+            pad = -2
+            min-size = -80
+            min-width = -3
+            [shake]
+            shake-amplitude = -10
+            """)
+        XCTAssertEqual(c.width, 0)
+        XCTAssertEqual(c.cornerRadius, 0)
+        XCTAssertEqual(c.pad, 0)
+        XCTAssertEqual(c.minSize, 0)
+        XCTAssertEqual(c.shakeAmplitude, 0)
+        XCTAssertEqual(c.minWidth, -3)        // the breathing bounds declare no schema min
+        XCTAssertEqual(HaloConfig.parse("[border]\nwidth = 2.5\n").width, 2.5)
+    }
+
     func testShakeDurationAndPetFloors() {
         XCTAssertEqual(HaloConfig.parse("[shake]\nshake-duration-ms = 0\n").shakeDurationMs, 1)
         XCTAssertEqual(HaloConfig.parse("[pets]\npet-scale = 0\n").petScale, 0.1)

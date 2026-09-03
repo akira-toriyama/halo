@@ -14,11 +14,12 @@
 //
 // Enum DOMAINS come from the single sources of truth: sill's
 // `canonicalEffectNames` / `canonicalLinePetNames` (re-exported through
-// `Effects`). Numeric `min`/`max` mirror the clamps in `load` (advisory
-// in the editor; the app still clamps at runtime so a typo can't break
-// the ring). The `color` key has NO enum — `parseColorToken` accepts a
-// runtime-open grammar (named colors + `#rgb`/`#rrggbb`/`#rrggbbaa`), so
-// an enum would false-flag valid values.
+// `Effects`). Every numeric `min`/`max` IS a runtime clamp (`clampLogged`,
+// one `config: key = raw clamped to x (allowed lo..hi)` line per hit —
+// wand's shape): the schema advises the editor and the decode enforces
+// the same bounds, so a typo can't break the ring. The `color` key has NO
+// enum — `parseColorToken` accepts a runtime-open grammar (named colors +
+// `#rgb`/`#rrggbb`/`#rrggbbaa`), so an enum would false-flag valid values.
 
 import ConfigSchema
 import Foundation
@@ -133,6 +134,26 @@ extension HaloConfig {
     }
 }
 
+/// Clamp `raw` to `[lo, hi]` (either bound optional) and log the
+/// correction in wand's `clampInt` shape, so the /tmp/halo.log line for a
+/// hot-reload names the key, the value written and the accepted range.
+private func clampLogged(_ key: String, _ raw: Double, min lo: Double?, max hi: Double?) -> Double {
+    var v = raw
+    if let lo { v = Swift.max(lo, v) }
+    if let hi { v = Swift.min(hi, v) }
+    if v != raw {
+        let range: String
+        switch (lo, hi) {
+        case let (lo?, hi?): range = "\(lo)..\(hi)"
+        case let (lo?, nil): range = "\(lo).."
+        case let (nil, hi?): range = "..\(hi)"
+        case (nil, nil):     range = ""
+        }
+        Log.line("config: \(key) = \(raw) clamped to \(v) (allowed \(range))")
+    }
+    return v
+}
+
 private extension ConfigSchema.Field where Root == HaloConfig {
     /// Plain string passthrough.
     static func str(_ key: String, _ kp: WritableKeyPath<HaloConfig, String>,
@@ -148,20 +169,26 @@ private extension ConfigSchema.Field where Root == HaloConfig {
               apply: { c, v in if let b = v.asBool { c[keyPath: kp] = b } },
               def: def.map { .bool($0) }, doc: doc)
     }
-    /// Number in TOML (int OR fractional) → `CGFloat` field, no clamp.
+    /// Number in TOML (int OR fractional) → `CGFloat` field, clamped to
+    /// the schema's `min` / `max` when given.
     static func cgDbl(_ key: String, _ kp: WritableKeyPath<HaloConfig, CGFloat>,
                       min lo: Double? = nil, max hi: Double? = nil,
                       default def: Double? = nil, doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.number),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = CGFloat(d) } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = CGFloat(clampLogged(key, d, min: lo, max: hi)) }
+              },
               def: def.map { .number($0) }, min: lo, max: hi, doc: doc)
     }
-    /// Number → optional `CGFloat?` (the width-breathing bounds).
+    /// Number → optional `CGFloat?` (the width-breathing bounds), clamped
+    /// to `min` / `max` when given.
     static func cgDblOpt(_ key: String, _ kp: WritableKeyPath<HaloConfig, CGFloat?>,
                          min lo: Double? = nil, max hi: Double? = nil,
                          doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.number),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = CGFloat(d) } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = CGFloat(clampLogged(key, d, min: lo, max: hi)) }
+              },
               min: lo, max: hi, doc: doc)
     }
     /// Number → `CGFloat` with a lower floor (`max(floor, v)`).
@@ -169,7 +196,9 @@ private extension ConfigSchema.Field where Root == HaloConfig {
                            floor lo: Double, default def: Double? = nil,
                            doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.number),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = CGFloat(Swift.max(lo, d)) } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = CGFloat(clampLogged(key, d, min: lo, max: nil)) }
+              },
               def: def.map { .number($0) }, min: lo, doc: doc)
     }
     /// Number → `Double` with a lower floor (`max(floor, v)`).
@@ -177,7 +206,9 @@ private extension ConfigSchema.Field where Root == HaloConfig {
                          floor lo: Double, default def: Double? = nil,
                          doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.number),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = Swift.max(lo, d) } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = clampLogged(key, d, min: lo, max: nil) }
+              },
               def: def.map { .number($0) }, min: lo, doc: doc)
     }
     /// Number → `Double` clamped to `[min, max]`.
@@ -185,16 +216,20 @@ private extension ConfigSchema.Field where Root == HaloConfig {
                          min lo: Double, max hi: Double, default def: Double? = nil,
                          doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.number),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = Swift.max(lo, Swift.min(hi, d)) } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = clampLogged(key, d, min: lo, max: hi) }
+              },
               def: def.map { .number($0) }, min: lo, max: hi, doc: doc)
     }
     /// `color-cycle-ms` (integer ms in the editor) → seconds field with
-    /// `max(100, v)/1000` — mirrors `load`'s transform + floor. Schema
-    /// `min` is the 100 ms floor; default is shown in ms (6000).
+    /// `max(100, v)/1000`. Schema `min` is the 100 ms floor; default is
+    /// shown in ms (6000).
     static func cycleMs(_ key: String, _ kp: WritableKeyPath<HaloConfig, CGFloat>,
                         default def: Int, doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.integer),
-              apply: { c, v in if let d = v.asDouble { c[keyPath: kp] = Swift.max(100, CGFloat(d)) / 1000 } },
+              apply: { c, v in
+                  if let d = v.asDouble { c[keyPath: kp] = CGFloat(clampLogged(key, d, min: 100, max: nil)) / 1000 }
+              },
               def: .int(def), min: 100, doc: doc)
     }
     /// `[border] effect` — lowercased + validated against
