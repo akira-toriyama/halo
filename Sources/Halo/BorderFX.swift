@@ -19,6 +19,7 @@
 
 import AppKit
 import Effects
+import HaloCore
 import QuartzCore   // CACurrentMediaTime — the shared border + pets clock
 
 final class BorderFX {

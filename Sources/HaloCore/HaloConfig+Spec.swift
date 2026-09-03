@@ -20,9 +20,9 @@
 // runtime-open grammar (named colors + `#rgb`/`#rrggbb`/`#rrggbbaa`), so
 // an enum would false-flag valid values.
 
-import AppKit
 import ConfigSchema
-import Effects
+import Foundation
+import Palette
 import Toml
 
 extension HaloConfig {
@@ -32,7 +32,7 @@ extension HaloConfig {
     /// Computed (not a stored `let`) so it needn't be `Sendable` — the
     /// `apply` closures capture keypaths; rebuilding ~20 small fields on
     /// the rare config (re)load is free.
-    static var configSpec: ConfigSchema.Spec<HaloConfig> {
+    public static var configSpec: ConfigSchema.Spec<HaloConfig> {
         ConfigSchema.Spec<HaloConfig>(
         title: "halo config.toml",
         sections: [
@@ -102,12 +102,12 @@ extension HaloConfig {
     /// The `config.toml` JSON Schema (Draft-07). Drives `halo
     /// --emit-schema` and the sidecar install — generated from the one
     /// `configSpec`, so it can never drift from the decode.
-    static var jsonSchema: String { configSpec.jsonSchema() }
+    public static var jsonSchema: String { configSpec.jsonSchema() }
 
     /// Where the schema sidecar lives — next to the user config, so a
     /// `#:schema ./config.schema.json` directive resolves on the user's
     /// machine (taplo reads it relative to the .toml's own directory).
-    static var schemaPath: String {
+    public static var schemaPath: String {
         (configFilePath as NSString).deletingLastPathComponent
             + "/config.schema.json"
     }
@@ -119,7 +119,7 @@ extension HaloConfig {
     /// non-fatal (completion just won't resolve), so the app never fails
     /// to start over it. Returns true if it actually wrote.
     @discardableResult
-    static func installSchema() -> Bool {
+    public static func installSchema() -> Bool {
         let path = schemaPath
         let dir = (path as NSString).deletingLastPathComponent
         let fm = FileManager.default
@@ -211,14 +211,14 @@ private extension ConfigSchema.Field where Root == HaloConfig {
               },
               domain: canonicalEffectNames, def: .string("neon"), doc: doc)
     }
-    /// `[border] color` — `parseColorToken` → `NSColor` (no enum; the
-    /// grammar is runtime-open).
-    static func color(_ key: String, _ kp: WritableKeyPath<HaloConfig, NSColor>,
+    /// `[border] color` — `parseColorToken` → `HexColor` (no enum; the
+    /// grammar is runtime-open). The app bridges to `NSColor`.
+    static func color(_ key: String, _ kp: WritableKeyPath<HaloConfig, HexColor>,
                       doc: String? = nil) -> Self {
         .init(key: key, kind: .scalar(.string),
               apply: { c, v in
                   if let s = v.asString, let hex = parseColorToken(s) {
-                      c[keyPath: kp] = NSColor(hex)
+                      c[keyPath: kp] = hex
                   }
               },
               def: .string("#39C5C8"), doc: doc)

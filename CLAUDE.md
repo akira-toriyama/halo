@@ -22,7 +22,7 @@ Schema to stdout) and the family-wide carve-out `-h` / `--help`. **Any other
 argument exits 2, loudly** (the family's "no silent fallback" sub-rule — never
 start up silently). A normal launch with no arguments (`open Halo.app` / brew
 services / a LaunchAgent) has an empty argv, so it never hits that rejection.
-The implementation is [Sources/Halo/main.swift](Sources/Halo/main.swift).
+The implementation is [Sources/Halo/HaloApp.swift](Sources/Halo/HaloApp.swift).
 
 ## Shared libraries (atelier)
 
@@ -34,8 +34,11 @@ module → target wiring is authoritative in [Package.swift](Package.swift).
 
 - **[sill](https://github.com/akira-toriyama/sill)** — the shared theming / CLI
   foundation (design → [`docs/DESIGN.md`](https://github.com/akira-toriyama/sill/blob/main/docs/DESIGN.md)).
-  halo uses `Effects` (border resolve / theme) and `ConfigSchema` (the taplo
-  schema behind `--emit-schema`).
+  `HaloCore` uses `Palette` (the pure color / effect-name / pet vocabulary)
+  and `ConfigSchema` (the decode + the taplo schema behind `--emit-schema`);
+  the `Halo` executable adds `Effects` (border resolve, pets drawing, the
+  `NSColor` bridge).
+
 - **[swift-toml-edit](https://github.com/akira-toriyama/swift-toml-edit)** — the
   family's one TOML implementation (the `Toml` module, a Swift port of
   toml_edit). halo uses it to parse config.toml.

@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Darwin
+import HaloCore
 
 // `_AXUIElementGetWindow` (private ApplicationServices symbol, dlsym-bound)
 // maps an AX window element to its CGWindowID — the same reconciliation
@@ -25,13 +26,9 @@ private let axGetWindow: AXGetWindowFn? = {
 // decaying-sine taper lands the final write on the EXACT origin, so
 // neighbours are never affected: halo has no tiling / reconcile to
 // fight the move, and a co-running facet just sees the window return
-// to its base frame.
-//
-//   x(p) = origin.x + amplitude · sin(2π·cycles·p) · (1 − p),  p ∈ [0,1]
-//
-// `p` is wall-clock progress over `durationMs`; the `(1 − p)` envelope
-// decays the swing to zero and guarantees x(1) == origin.x. `y` is
-// never touched (pure left-right shake). Chrome / Calendar and other
+// to its base frame. The curve is `HaloCore.ShakeCurve`; `p` is
+// wall-clock progress over `durationMs`. `y` is never touched (pure
+// left-right shake). Chrome / Calendar and other
 // lazy-AX apps won't surface a movable focused window → fire() no-ops
 // on them (a known, accepted limitation).
 //
@@ -44,7 +41,6 @@ final class WindowShake {
     /// Total shake duration in ms (config `shake-duration-ms`).
     var durationMs: Double = 250
 
-    private let cycles: CGFloat = 3.5      // oscillations across the duration
     private let hz: Double = 90            // AX-write frame rate
 
     private var timer: Timer?
@@ -158,8 +154,7 @@ final class WindowShake {
         let elapsedMs = (ProcessInfo.processInfo.systemUptime - startUptime) * 1000
         let p = elapsedMs / durationMs
         if p >= 1 { finish(); return }            // restores exact origin
-        let env = (1 - CGFloat(p))
-        let offset = amplitude * sin(2 * .pi * cycles * CGFloat(p)) * env
+        let offset = ShakeCurve.offset(progress: p, amplitude: amplitude)
         setPosition(w, CGPoint(x: origin.x + offset, y: origin.y))
     }
 

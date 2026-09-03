@@ -1,4 +1,5 @@
 import AppKit
+import HaloCore
 
 // Focus-sound — plays a short audio cue when focus changes to a
 // different window. A sibling-repo "satellite" alongside the ring, the

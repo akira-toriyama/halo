@@ -11,6 +11,19 @@
 // core window management, so it lives on its own and keeps facet's core
 // minimal.
 //
+//   HaloCore   pure logic: config decode + schema (ConfigSchema), the
+//              focus resolve over window snapshots, overlay ↔ ring
+//              geometry, the shake curve, pet orbit speed, Log. No
+//              AppKit, no SkyLight, no AX. Fully testable.
+//
+//   Halo       executable: @main, the private-SkyLight event seam, the
+//              overlay window + ring view, BorderFX (NSColor
+//              materialization over sill's clockless resolve), the AX
+//              focus-shake, the focus-sound. The ONLY module that
+//              imports AppKit.
+//
+// Tests live under Tests/HaloCoreTests.
+//
 // The whole tool is single-threaded on the main run loop plus a handful
 // of private-SkyLight C callbacks, so the executable target uses Swift 5
 // language mode: strict concurrency would add ceremony here with no
@@ -29,27 +42,25 @@ let package = Package(
     platforms: [.macOS("26.0")],
     products: [
         .executable(name: "halo", targets: ["Halo"]),
+        .library(name: "HaloCore", targets: ["HaloCore"]),
     ],
     dependencies: [
-        // sill — the swift app family's shared theming library. halo
-        // consumes ONLY the dynamic `Effects` atom: the border-effect
-        // catalog (neon/cyber/vapor/kawaii/rainbow/chomp), the pure
-        // `blendThrough` cycle, and the shared `LinePet` / `drawLinePets`
-        // (orbiting pets) — replacing the BorderEffect palettes it used to
-        // hand-copy from facet. No PaletteKit: halo draws only a ring, so
-        // it needs the effect DATA, not a resolved text/bg theme palette.
-        // Since 0.6.0 Effects `@_exported import`s Palette, so the pure
-        // vocabulary (canonicalLinePetNames, parseColorToken, HexColor)
-        // and the `NSColor(_ hex: HexColor)` bridge arrive with no extra
-        // product link.
+        // sill — the swift app family's shared theming library. The app
+        // consumes the dynamic `Effects` atom: the border-effect catalog
+        // (neon/cyber/vapor/kawaii/rainbow/chomp), the clockless
+        // `resolveBorder`, and the shared `drawLinePets` (orbiting pets).
+        // HaloCore links only the pure `Palette` vocabulary
+        // (canonicalEffectNames / canonicalLinePetNames, parseColorToken,
+        // HexColor, LinePet) — Effects imports AppKit, so it stays out of
+        // Core. No PaletteKit: halo draws only a ring, so it needs the
+        // effect DATA, not a resolved text/bg theme palette.
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
         // `.upToNextMinor` off the current major, the same pin shape as the
-        // rest of the family; dependabot proposes the bumps. halo links only
-        // `Effects` (+ the `Palette` vocabulary it re-exports) and
-        // `ConfigSchema`, which drives BOTH the config.toml decode AND the
-        // JSON Schema emitted for taplo completion (`halo --emit-schema`).
+        // rest of the family; dependabot proposes the bumps. `ConfigSchema`
+        // drives BOTH the config.toml decode AND the JSON Schema emitted for
+        // taplo completion (`halo --emit-schema`).
         .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.0.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);
@@ -60,12 +71,11 @@ let package = Package(
         .package(url: "https://github.com/akira-toriyama/swift-toml-edit", .upToNextMajor(from: "2.3.1")),
     ],
     targets: [
-        .executableTarget(
-            name: "Halo",
+        .target(
+            name: "HaloCore",
             dependencies: [
-                .product(name: "Effects", package: "sill"),
-                // Toml: the family's pure config parser (`Toml.parseFlat`),
-                // now sourced from the standalone swift-toml-edit package.
+                .product(name: "Palette", package: "sill"),
+                // Toml: the family's pure config parser (`Toml.parseFlat`).
                 .product(name: "Toml", package: "swift-toml-edit"),
                 // ConfigSchema: one declarative `Spec` drives BOTH the
                 // config.toml decode and the JSON Schema emitted for taplo
@@ -73,13 +83,23 @@ let package = Package(
                 .product(name: "ConfigSchema", package: "sill"),
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]),
-        // Drift guard: the committed config.schema.json must equal the live
-        // `configSpec.jsonSchema()` — so the editor schema can never drift
-        // from the parser. CLT ships no XCTest, so this runs in CI (the
-        // shared swift-build action's `swift test` step).
+        .executableTarget(
+            name: "Halo",
+            dependencies: [
+                "HaloCore",
+                .product(name: "Effects", package: "sill"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v5)]),
+        // Pure-logic tests, plus the drift guard: the committed
+        // config.schema.json must equal the live `configSpec.jsonSchema()`.
+        // CLT ships no XCTest, so these run in CI (the shared swift-build
+        // action's `swift test` step).
         .testTarget(
-            name: "HaloTests",
-            dependencies: ["Halo"],
+            name: "HaloCoreTests",
+            dependencies: [
+                "HaloCore",
+                .product(name: "Palette", package: "sill"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )
