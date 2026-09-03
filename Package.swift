@@ -99,6 +99,7 @@ let package = Package(
             dependencies: [
                 "HaloCore",
                 .product(name: "Palette", package: "sill"),
+                .product(name: "ConfigSchema", package: "sill"),
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]),
     ]

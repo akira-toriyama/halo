@@ -69,12 +69,59 @@ public struct HaloConfig: Sendable {
     }
 
     /// Read + decode `~/.config/halo/config.toml`. Missing / unreadable →
-    /// all defaults. Read-only by design: halo never writes the user's
-    /// config (only the schema sidecar, via `installSchema`).
+    /// all defaults. Every schema violation is logged first
+    /// (`warnSchemaViolations`) so a hot-reload that "did nothing" says
+    /// why in /tmp/halo.log; the lenient decode then runs regardless.
+    /// Read-only by design: halo never writes the user's config (only the
+    /// schema sidecar, via `installSchema`).
     public static func load() -> HaloConfig {
         guard let text = try? String(contentsOfFile: configFilePath, encoding: .utf8)
         else { return HaloConfig() }
+        warnSchemaViolations(text)
         return parse(text)
+    }
+
+    /// Structural validation against the SAME `configSpec` that drives the
+    /// decode and `--emit-schema` (sill's `Spec.validate`): the STRICT
+    /// counterpart to the lenient `parse`, surfacing the type / enum /
+    /// range / unknown-key mismatches the decode clamps or drops. Returns
+    /// every violation (empty = valid); throws only when `text` is not
+    /// parseable TOML at all.
+    public static func validate(_ text: String) throws -> [ValidationError] {
+        configSpec.validate(try Toml.parse(text))
+    }
+
+    /// Load-path validate (the family shape — facet / wand / perch): each
+    /// violation becomes one `config: …` line via `Log.line`; nothing is
+    /// rejected. When the strict `Toml.parse` refuses the file (an unquoted
+    /// string, a line without `=`, a datetime — the classic typos, which
+    /// the lenient `parseFlat` scanner just drops line by line) the
+    /// rejection is logged and the validate runs over what the scanner DID
+    /// read, so the other keys' violations still surface. Returns the
+    /// violation count.
+    @discardableResult
+    public static func warnSchemaViolations(_ text: String) -> Int {
+        let errors: [ValidationError]
+        do {
+            errors = try validate(text)
+        } catch {
+            Log.line("config: not strict TOML (\(error)) — the offending line is dropped; "
+                     + "validating the rest")
+            errors = configSpec.validate(lenientRoot(text))
+        }
+        for e in errors { Log.line("config: \(e.message)") }
+        return errors.count
+    }
+
+    /// The nested root `Spec.validate` walks, rebuilt from the lenient flat
+    /// scan: one `.table` per `[header]`. halo's headers are single-segment
+    /// and it has no top-level keys or `[[arrays]]`, so the fold is exact.
+    private static func lenientRoot(_ text: String) -> [String: Toml.Value] {
+        var root: [String: Toml.Value] = [:]
+        for (header, fields) in Toml.parseFlat(text).tables where !header.isEmpty {
+            root[header] = .table(fields)
+        }
+        return root
     }
 
     /// Decode config.toml SOURCE. The uniform `[block]` keys are driven by
