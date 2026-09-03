@@ -45,17 +45,11 @@ let package = Package(
         //
         // Swap to `.package(path: "../sill")` for atomic local sill+halo
         // editing during dev; the committed form pins the published tag.
-        // Floor 5.0.0 — halo sat on 0.11.0 for six weeks and was the family's
-        // most-behind consumer by four majors. The jump crosses sill 1.x→5.x,
-        // but halo links only `Effects` (+ the `Palette` vocabulary it
-        // re-exports) and `ConfigSchema`, and NONE of sill's majors touched
-        // those: v2.0.0 raised the macOS floor (applied above), v3/v4 reshaped
-        // ThemeKitUI + typed the theme catalog, v5.0.0 made themed SwiftUI
-        // widgets ambient. Measured, not assumed — `swift build` is clean with
-        // zero source changes, and `halo --emit-schema` differs from the
-        // committed schema only by the ten themes sill added meanwhile.
-        // `ConfigSchema` still drives BOTH the config.toml decode AND the JSON
-        // Schema emitted for taplo completion (`halo --emit-schema`).
+        // `.upToNextMinor` off the current major, the same pin shape as the
+        // rest of the family; dependabot proposes the bumps. halo links only
+        // `Effects` (+ the `Palette` vocabulary it re-exports) and
+        // `ConfigSchema`, which drives BOTH the config.toml decode AND the
+        // JSON Schema emitted for taplo completion (`halo --emit-schema`).
         .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.0.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`);

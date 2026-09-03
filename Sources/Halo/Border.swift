@@ -97,10 +97,8 @@ final class BorderController {
 
     private func stopRedraw() { redrawTimer?.invalidate(); redrawTimer = nil }
 
-    private static let configPath =
-        ("~/.config/halo/config.toml" as NSString).expandingTildeInPath
     private static func configMtime() -> Date? {
-        (try? FileManager.default.attributesOfItem(atPath: configPath))?[.modificationDate] as? Date
+        (try? FileManager.default.attributesOfItem(atPath: HaloConfig.configFilePath))?[.modificationDate] as? Date
     }
 
     /// Hot-reload: re-read + re-apply config when its mtime changes.

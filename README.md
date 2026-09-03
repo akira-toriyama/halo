@@ -101,9 +101,13 @@ Homebrew is bumped automatically on publish.
 swift build -c release && .build/release/halo &   # raw binary, no bundle
 ```
 
-halo touches no TCC-gated APIs, so — unlike facet — there's no
-self-signed-cert step and no dev/release bundle split: ad-hoc signing is
-enough. Commits follow the facet-family gitmoji-driven convention
+Only the focus-shake touches a TCC-gated API (Accessibility). TCC keys
+the grant to the code-signing identity, so run `./setup-signing-cert.sh`
+once: it writes a stable identity to `.signing-id`, which `package.sh`
+signs with, and the grant survives rebuilds. Without it `package.sh`
+falls back to ad-hoc signing, which works but drops the grant whenever
+the binary changes (CI and Homebrew sign ad-hoc). There is no dev/release
+bundle split. Commits follow the facet-family gitmoji-driven convention
 (`glyph hook install` for the local hook; see
 [CONTRIBUTING.md](https://github.com/akira-toriyama/.github/blob/main/CONTRIBUTING.md)).
 
