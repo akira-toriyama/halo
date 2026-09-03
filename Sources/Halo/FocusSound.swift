@@ -20,8 +20,9 @@ import HaloCore
 // per focus) so a long-running agent spawns nothing and the file is
 // decoded once.
 //
-// Not @MainActor: like the rest of halo, single-threaded on the main run
-// loop. configure() / play() are called from BorderController on main.
+// @MainActor like the rest of halo: configure() / play() are called from
+// BorderController on main.
+@MainActor
 final class FocusSound {
     private var sound: NSSound?
     private var loadedPath: String?     // the expanded path currently decoded

@@ -22,6 +22,7 @@ import HaloCore
 // services, LaunchAgent) passes no argv, so this never blocks startup.
 @main
 enum HaloApp {
+    @MainActor
     static func main() {
         let cliArgs = Array(CommandLine.arguments.dropFirst())
 
@@ -75,9 +76,12 @@ enum HaloApp {
 
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)        // LSUIElement: agent, no Dock icon
-        let delegate = HaloDelegate()              // NSApp holds its delegate weakly; main() never returns
-        app.delegate = delegate
-        app.run()
+        // NSApp holds its delegate weakly: keep it alive for the whole run
+        // by contract, not by the optimizer's ordering of the last release.
+        withExtendedLifetime(HaloDelegate()) { delegate in
+            app.delegate = delegate
+            app.run()
+        }
     }
 }
 
@@ -85,6 +89,7 @@ enum HaloApp {
 // dedicated window-event connection, then keeps a transparent ring hugged
 // to whatever window is frontmost. Config is owned by BorderController
 // (loaded there, hot-reloaded there); the delegate only wires the seam.
+@MainActor
 final class HaloDelegate: NSObject, NSApplicationDelegate {
     private let events = WindowServerEvents()
     private var border: BorderController!
