@@ -25,12 +25,17 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Info.plist "$APP/Contents/Info.plist"
 cp .build/release/halo "$APP/Contents/MacOS/halo"   # = CFBundleExecutable
 
-# Stamp the bundle's marketing version from git so the displayed
-# version is accurate (the committed Info.plist value is only a
-# fallback for a tag-less tarball build). `git describe` → e.g.
-# v1.0.0-3-g1e77545 → 1.0.0-3-g1e77545; a clean tagged build is just
-# 1.0.0.
-VERSION="$(git describe --tags --dirty 2>/dev/null | sed 's/^v//')"
+# Stamp the bundle's marketing version so the bundle names the release
+# it came from. The tag this build is FOR arrives as RELEASE_TAG (glyph's
+# release.yml states it on the build step): the draft's tag exists as a
+# git ref only once a human publishes, so `git describe` in CI can only
+# name the PREVIOUS release — measured 2026-09-25, the v4.1.0 draft
+# carried a bundle saying 4.0.0-34-g1b9aaf7. Without RELEASE_TAG (a local
+# build) `git describe` stays: v1.0.0-3-g1e77545 → 1.0.0-3-g1e77545, a
+# clean tagged build is just 1.0.0, and the committed Info.plist value is
+# only a fallback for a tag-less tarball build.
+VERSION="${RELEASE_TAG:-$(git describe --tags --dirty 2>/dev/null || true)}"
+VERSION="${VERSION#v}"
 if [[ -n "$VERSION" ]]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
     "$APP/Contents/Info.plist" >/dev/null 2>&1 || true
