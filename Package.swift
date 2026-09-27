@@ -63,7 +63,7 @@ let package = Package(
         // swift-toml-edit 3.x, sill <= 8.0.x requires 2.x — bumping either
         // alone fails to resolve, so they move together in one commit.
         // Dependabot ignores akira-toriyama/*, so nothing else warns.
-        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.8.4")),
+        .package(url: "https://github.com/akira-toriyama/sill", .upToNextMinor(from: "8.9.0")),
         // swift-toml-edit — the family's ONE TOML implementation (Sill-1).
         // Provides the `Toml` module halo reads config with (`Toml.parseFlat`,
         // the sole call site); the module name is unchanged so `import Toml`
