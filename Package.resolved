@@ -1,13 +1,13 @@
 {
-  "originHash" : "ec969caf354acc15a6f71f1ab1cc62eeaaa5d9d72db06cccfddba93f02de2c56",
+  "originHash" : "c32da0cd665c3205c9e1ba470218c47cc0391c7614ecd4445caef06b4a902bab",
   "pins" : [
     {
       "identity" : "sill",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/akira-toriyama/sill",
       "state" : {
-        "revision" : "c6ded4d47b5e62f5038bc334dee8c787a3611522",
-        "version" : "8.9.0"
+        "revision" : "bdecf6fb14ba7326fd1607b1755280896cb2d869",
+        "version" : "8.9.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/akira-toriyama/swift-toml-edit",
       "state" : {
-        "revision" : "603c402868e1fb5c4348d130f16e73b401f531f8",
-        "version" : "3.0.0"
+        "revision" : "70a467178aa80981362b215df043ffa5f3236488",
+        "version" : "3.0.1"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swhitty/SwiftDraw.git",
       "state" : {
-        "revision" : "dbb4ef98824053ead8c83fa866c2c6054fb41809",
-        "version" : "0.24.0"
+        "revision" : "82699f4bdf2f075793cfa0d392eb27c59b41a3fe",
+        "version" : "0.29.0"
       }
     }
   ],
