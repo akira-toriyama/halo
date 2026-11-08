@@ -7,9 +7,10 @@
 # window via AX). If you run with `shake = false`, halo is permission-
 # free and you don't need this script at all.
 #
-# Run ONCE. macOS may prompt to unlock your login keychain — that is
-# the only interactive step. Afterwards `package.sh` auto-uses the
-# identity (it writes the name to `.signing-id`).
+# Run ONCE, in a terminal: macOS asks for your login password once so
+# that codesign can use the key (allow_codesign below) — that is the
+# only interactive step. Afterwards `package.sh` auto-uses the identity
+# (it writes the name to `.signing-id`).
 #
 # Why this works: TCC keys an app's grant to its code-signing
 # identity. Ad-hoc (`codesign -s -`) has no stable identity, so every
@@ -32,11 +33,55 @@ for arg in "$@"; do
     *) echo "setup-signing-cert: unknown option \"$arg\" (try --dry-run / --silent)" >&2; exit 2 ;;
   esac
 done
+# Read before the tee below: through tee, stderr is a pipe even on a
+# terminal. allow_codesign decides on this answer.
+TTY=0; if [[ -t 0 && -t 2 ]]; then TTY=1; fi
 # Tee stdout+stderr to a log by default; --silent opts out.
 if (( ! SILENT )); then exec > >(tee "/tmp/setup-signing-cert.log") 2>&1; fi
 
 CN="halo Local Signing"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+
+# `security import` leaves the key's partition list at `apple-tool:`, which keeps
+# codesign out: the first signature fails with errSecInternalComponent over ssh
+# and stops at a SecurityAgent dialog in a GUI session, so a LaunchAgent's rebuild
+# hangs (Tart VM, macOS 26.5, 2026-11-08; the same as chord#237).
+#
+# A usable key stays a silent no-op: capsule's verify.sh runs this script with
+# --silent on every verify of the halo profile, unattended, with its output in a
+# log, and stops the run if it fails. A keychain locked in this session shows no
+# partition_id entry, which reads as "no". No early exit in the awk: closing the
+# pipe would SIGPIPE security.
+key_allows_codesign() {
+  security dump-keychain -a "$KEYCHAIN" 2>/dev/null | awk -v cn="$CN" '
+    /^keychain: /                             { key = 0; named = 0 }
+    /^class: 0x00000010/                      { key = 1 }
+    index($0, "0x00000001 <blob>=\"" cn "\"") { named = 1 }
+    /authorizations .*: partition_id/         { list = 1; next }
+    list && /description: / {
+      if (key && named) { seen = 1; if ($0 !~ / apple:(,|$)/) missing = 1 }
+      list = 0
+    }
+    END { exit !(seen && !missing) }
+  '
+}
+
+# The list takes the keychain's password, which security(1) reads from the terminal
+# (its -k is deprecated), so someone has to be there to see the prompt: stdin and
+# stderr, as read before the tee. -l because without it the list of every signing
+# key in the keychain is replaced. A wrong password exits 1 and changes nothing, so
+# a run that finds the identity present still has to come through here.
+allow_codesign() {
+  if (( ! TTY )); then
+    echo "codesign cannot use the \"$CN\" key yet, and allowing it takes your login password: run this script in a terminal." >&2
+    exit 1
+  fi
+  echo "macOS asks for your login password once, so that codesign can use the \"$CN\" key without a dialog."
+  if ! security set-key-partition-list -S apple-tool:,apple:,codesign: -s -l "$CN" "$KEYCHAIN" >/dev/null; then
+    echo "codesign cannot use the \"$CN\" key yet: run this script again with your login password." >&2
+    exit 1
+  fi
+}
 
 # Idempotency: a self-signed cert that isn't trusted does NOT appear
 # in `find-identity -v -p codesigning`, so a naive guard there never
@@ -59,17 +104,23 @@ if (( ${#hashes} >= 1 )); then
     fi
   fi
   if (( DRY_RUN )); then
-    echo "[dry-run] identity already present: $CN — would refresh .signing-id; no keychain change"
+    if key_allows_codesign; then
+      echo "[dry-run] identity already present: $CN — codesign can use its key; would refresh .signing-id; no keychain change"
+    else
+      echo "[dry-run] identity already present: $CN — codesign cannot use its key yet; would set the key's partition list (asks for your login password), then write .signing-id"
+    fi
     exit 0
   fi
   echo "identity already present: $CN"
+  key_allows_codesign || allow_codesign
   echo -n "$CN" > .signing-id
   exit 0
 fi
 
 if (( DRY_RUN )); then
   echo "[dry-run] no \"$CN\" identity found — would create a self-signed"
-  echo "[dry-run] codesigning cert and import it into $KEYCHAIN, then"
+  echo "[dry-run] codesigning cert and import it into $KEYCHAIN, set the"
+  echo "[dry-run] key's partition list (asks for your login password), then"
   echo "[dry-run] write .signing-id"
   exit 0
 fi
@@ -77,7 +128,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-cat > "$TMP/cert.cnf" <<EOF
+cat > "$TMP/cert.cnf" <<CNF
 [req]
 distinguished_name = dn
 x509_extensions = v3
@@ -88,24 +139,26 @@ CN = $CN
 basicConstraints = critical,CA:false
 keyUsage = critical,digitalSignature
 extendedKeyUsage = critical,codeSigning
-EOF
+CNF
 
-openssl req -x509 -newkey rsa:2048 -nodes \
+# /usr/bin's, a LibreSSL every Mac has, never PATH's: an OpenSSL 3+ takes -legacy
+# for these options and a LibreSSL refuses it, with this script's output hidden
+# (LibreSSL 3.3.6, macOS 26.5, Tart VM, 2026-11-08).
+/usr/bin/openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout "$TMP/key.pem" -out "$TMP/cert.pem" \
   -days 3650 -config "$TMP/cert.cnf" >/dev/null 2>&1
 
-# Legacy PKCS12 (SHA1 MAC / 3DES) + a password: required for Apple's
-# `security` to import OpenSSL 3 output without "MAC verification
-# failed".
+# SHA-1 MAC / 3DES + a password: required for Apple's `security` to
+# import the .p12 without "MAC verification failed".
 P12PW="halo"
-openssl pkcs12 -export -legacy -macalg sha1 \
+/usr/bin/openssl pkcs12 -export -macalg sha1 \
   -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES \
   -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
   -out "$TMP/id.p12" -passout "pass:$P12PW" -name "$CN" >/dev/null 2>&1
 
-# -A: usable by any app (so /usr/bin/codesign can use the key
-# non-interactively).
+# -A opens the key's ACL to any app; codesign still needs allow_codesign.
 security import "$TMP/id.p12" -k "$KEYCHAIN" -P "$P12PW" -A >/dev/null
+allow_codesign
 
 echo -n "$CN" > .signing-id
 echo "created identity: $CN"

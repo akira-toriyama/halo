@@ -51,16 +51,17 @@ fi
 # Identity precedence: $CODESIGN_ID > .signing-id file > ad-hoc ("-").
 # Hybrid (best-effort cert, loud fallback): try the stable identity, but
 # if codesign can't use the keychain key (errSecInternalComponent —
-# locked keychain, ACL refusal, broken cert), fall back to ad-hoc with a
-# warning instead of aborting. Ad-hoc works fine; the only cost is the
-# AX grant dropping when the binary changes (not on config-only tweaks).
+# locked keychain, a key whose partition list lacks apple:, broken
+# cert), fall back to ad-hoc with a warning instead of aborting. Ad-hoc
+# works fine; the only cost is the AX grant dropping when the binary
+# changes (not on config-only tweaks).
 ID="${CODESIGN_ID:-}"
 if [[ -z "$ID" && -f .signing-id ]]; then ID="$(cat .signing-id)"; fi
 ID="${ID:--}"
 if ! codesign --force --sign "$ID" "$APP" 2>/tmp/halo-codesign.err; then
   if [[ "$ID" != "-" ]]; then
     echo "warning: signing with \"$ID\" failed ($(tr -d '\n' </tmp/halo-codesign.err)) — ad-hoc fallback" >&2
-    echo "  (fix later: ./setup-signing-cert.sh + click 'Always Allow', or just use ad-hoc)" >&2
+    echo "  (fix later: run ./setup-signing-cert.sh in a terminal, or just use ad-hoc)" >&2
     ID="-"
     codesign --force --sign - "$APP"
   else
