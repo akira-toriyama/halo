@@ -103,7 +103,8 @@ swift build -c release && .build/release/halo &   # raw binary, no bundle
 
 Only the focus-shake touches a TCC-gated API (Accessibility). TCC keys
 the grant to the code-signing identity, so run `./setup-signing-cert.sh`
-once: it writes a stable identity to `.signing-id`, which `package.sh`
+once in a terminal (it asks for your login password once so codesign can
+use the key): it writes a stable identity to `.signing-id`, which `package.sh`
 signs with, and the grant survives rebuilds. Without it `package.sh`
 falls back to ad-hoc signing, which works but drops the grant whenever
 the binary changes (CI and Homebrew sign ad-hoc). There is no dev/release
